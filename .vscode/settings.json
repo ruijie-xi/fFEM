@@ -1,0 +1,10 @@
+{
+    "fortran.linter.includePaths": [
+        "/usr/lib/x86_64-linux-gnu/openmpi/include",
+        "/usr/lib/x86_64-linux-gnu/openmpi/lib",
+        "${workspaceFolder}/mod",
+        "/usr/lib/petsc/**",
+        "/usr/include/petsc/**"
+    ],
+    "fortran.linter.modOutput": "${workspaceFolder}/mod"
+}

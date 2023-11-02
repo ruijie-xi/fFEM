@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Fortran",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileWorkspaceFolder}/bin/test_poisson",    // <-- Change this
+            "args": ["20","20"],                               // <-- Change this
+            "stopAtEntry": false,
+            "cwd": "${fileWorkspaceFolder}",              // <-- And maybe this
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "compile",
+        }
+    ]
+}
+

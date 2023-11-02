@@ -1,0 +1,301 @@
+module fe_utils
+    use settings
+    use quadrature
+    use fe, only: getLocalDof
+    use basis, only: BasisLocal2D
+    implicit none
+    
+contains
+
+    ! Compute the integral of u over the domain
+    subroutine ComputeIntegral(u, Th, Vh, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: Gauss_type
+        real(8), intent(out), dimension(:), allocatable :: result
+
+        integer :: i_elem
+        real(8), dimension(:), allocatable :: val
+        
+        allocate(result(Vh%dim))
+        allocate(val(Vh%dim))
+
+        result = 0d0;
+
+        do i_elem = 1, Th%N_elem
+            call QuadIntegral(u, Th, Vh, i_elem, Gauss_type, val)
+            result = result + val
+        end do
+    end subroutine ComputeIntegral
+
+    ! Compute different norms of u
+    subroutine ComputeNorm(u, Th, Vh, norm_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: norm_type, Gauss_type
+        real(8), intent(out) :: result
+
+        integer :: i_elem
+
+        real(8) :: val
+
+        select case (norm_type)
+        case(NORM_L2)
+            result = 0d0;
+            do i_elem = 1, Th%N_elem
+                call QuadNorm(u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                result = result + val
+            end do
+            result = sqrt(result)
+
+        case default
+            print *, "Error: norm type not implemented"
+            stop
+
+        end select
+    end subroutine ComputeNorm
+
+    ! Compute different Errors of u and fun
+    subroutine ComputeError(fun, u, Th, Vh, norm_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: norm_type, Gauss_type
+        real(8), intent(out) :: result
+        procedure(func) :: fun
+
+        integer :: i_elem
+
+        real(8) :: val
+
+        select case (norm_type)
+        case(NORM_L2)
+            result = 0d0;
+            do i_elem = 1, Th%N_elem
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                result = result + val
+            end do
+            result = sqrt(result)
+        case(NORM_H1)
+            result = 0d0;
+            do i_elem = 1, Th%N_elem
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                result = result + val
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DX, Gauss_type, val)
+                result = result + val
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DY, Gauss_type, val)
+                result = result + val
+            end do
+            result = sqrt(result)
+
+        case default
+            print *, "Error: norm type not implemented"
+            stop
+
+        end select
+    end subroutine ComputeError
+
+    ! On the i_elem th element, compute \|u\|^2_{L^2} or \|dxu\|^2_{L^2}
+    subroutine QuadNorm(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type, Gauss_type
+        real(8), intent(out) :: result
+
+        real(8), dimension(:,:), allocatable :: x
+        real(8), dimension(:), allocatable :: w
+        real(8), dimension(:,:),allocatable :: fe_value
+
+        result = 0d0
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        
+        call FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, fe_value)
+
+        result = sum(spread(w,1,Vh%dim)*fe_value**2)
+        
+    end subroutine QuadNorm
+
+    subroutine QuadError(fun, u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type, Gauss_type
+        real(8), intent(out) :: result
+        procedure(func) :: fun
+
+        real(8), dimension(:,:), allocatable :: x
+        real(8), dimension(:), allocatable :: w
+        real(8), dimension(:,:),allocatable :: fe_value,exact_value,err_value
+        real(8), dimension(:), allocatable :: tmp
+        integer :: numpts,i_pt
+
+        result = 0d0
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        numpts = size(x, 2)
+        allocate(exact_value(Vh%dim,numpts))
+        allocate(err_value(Vh%dim,numpts))
+
+        ! exact value
+        do i_pt = 1, numpts
+            call fun(x(:,i_pt), tmp, deriv_type)
+            exact_value(:,i_pt) = tmp
+        end do
+
+        ! FE value
+        call FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, fe_value)
+
+        err_value = (fe_value - exact_value)**2
+        result = sum(spread(w,1,Vh%dim)*err_value)
+        
+        
+    end subroutine QuadError
+
+    ! On the i_elem th element, compute \int u dx
+    subroutine QuadIntegral(u, Th, Vh, i_elem, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, Gauss_type
+        real(8), intent(out), dimension(:) :: result
+
+        real(8), dimension(:,:), allocatable :: x
+        real(8), dimension(:), allocatable :: w
+        real(8), dimension(:,:),allocatable :: fe_value
+
+        result = 0d0
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+
+        call FEfunctionQuadValue(u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, fe_value)
+
+        result = sum(spread(w,1,Vh%dim)*fe_value, 2)
+
+    end subroutine QuadIntegral
+    
+
+    ! Compute the value of the FE function u at the quadrature points of element i_elem
+    subroutine FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type, Gauss_type
+        real(8), dimension(:,:), intent(out), allocatable :: result
+
+        real(8), dimension(:), allocatable :: local_u,w_ref
+        real(8), dimension(:,:), allocatable :: x_ref
+        real(8), dimension(:,:,:), allocatable :: basis_values
+        integer :: numpts,i_dim
+        
+        
+        call getGaussRefElement(Gauss_type, x_ref, w_ref)
+        call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
+
+        numpts = size(x_ref, 2)
+        allocate(result(Vh%dim,numpts))
+        do i_dim = 1,Vh%dim
+            call getLocalDof(u, Vh, i_elem, i_dim, local_u)
+            result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
+        end do 
+    end subroutine FEfunctionQuadValue
+
+
+    ! Assemblers
+    ! Local Matrix Assembler
+    subroutine LocalMatrix(i_elem, coe_fun, coe_fun_dim, Th, Vh_trial, Vh_test, i_dim_trial, &
+    deriv_type_trial, i_dim_test, deriv_type_test, Gauss_type, localmat)
+        integer, intent(in) :: i_elem, i_dim_trial, deriv_type_trial, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh_trial, Vh_test
+        procedure(func) :: coe_fun
+        real(8), intent(out), dimension(:,:), allocatable :: localmat
+
+        ! Gauss quadrature
+        real(8), dimension(:,:), allocatable :: x,x_ref
+        real(8), dimension(:), allocatable :: w,w_ref
+
+        ! Basis functions
+        real(8), dimension(:,:,:), allocatable :: basis_trial, basis_test
+
+        ! coefficient function
+        real(8), dimension(:), allocatable :: coe_value,tmp
+
+        integer :: i_pt
+
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        call getGaussRefElement(Gauss_type, x_ref, w_ref)
+        
+        call BasisLocal2D(x_ref, Th, Vh_trial, i_elem, deriv_type_trial, basis_trial)
+        call BasisLocal2D(x_ref, Th, Vh_test, i_elem, deriv_type_test, basis_test)
+        
+        ! coefficient function
+        allocate(coe_value(size(x,2)))
+        do i_pt = 1, size(x, 2)
+            call coe_fun(x(:,i_pt), tmp, DERIV_NONE)
+            coe_value(i_pt) = tmp(coe_fun_dim)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*coe_value(i_pt)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*w(i_pt)
+        end do
+
+        allocate(localmat(Vh_test%N_local_basis, Vh_trial%N_local_basis))
+        localmat = matmul(basis_test(i_dim_test,:,:), transpose(basis_trial(i_dim_trial,:,:)))
+
+    end subroutine LocalMatrix
+
+    ! Local Vector Assembler
+    subroutine LocalVector(i_elem, coe_fun, coe_fun_dim, Th, Vh_test, i_dim_test, deriv_type_test, Gauss_type, localvec)
+        integer, intent(in) :: i_elem, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) ::  Vh_test
+        procedure(func) :: coe_fun
+        real(8), intent(out), dimension(:), allocatable :: localvec
+
+        ! Gauss quadrature
+        real(8), dimension(:,:), allocatable :: x,x_ref
+        real(8), dimension(:), allocatable :: w,w_ref
+
+        ! Basis functions
+        real(8), dimension(:,:,:), allocatable :: basis_test
+
+        ! coefficient function
+        real(8), dimension(:), allocatable :: coe_value,tmp
+
+        integer :: i_pt
+
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        call getGaussRefElement(Gauss_type, x_ref, w_ref)
+        
+        call BasisLocal2D(x_ref, Th, Vh_test, i_elem, deriv_type_test, basis_test)
+        
+        ! coefficient function
+        allocate(coe_value(size(x,2)))
+        do i_pt = 1, size(x, 2)
+            call coe_fun(x(:,i_pt), tmp, DERIV_NONE)
+            coe_value(i_pt) = tmp(coe_fun_dim)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*coe_value(i_pt)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*w(i_pt)
+        end do
+
+        ! local vector
+        allocate(localvec(Vh_test%N_local_basis))
+        localvec = sum(basis_test(i_dim_test,:,:), 2)
+
+    end subroutine LocalVector
+
+    ! ! Global Matrix Assembler
+    ! subroutine AssembleMatrix(coe_fun, Th, Vh_trial, Vh_test, assemble_info, Gauss_type, A)
+    !     integer, intent(in) :: Gauss_type
+    !     type(mesh2D), intent(in) :: Th
+    !     type(fespace), intent(in) :: Vh_trial, Vh_test
+    !     integer, dimension(:,:), intent(in) :: assemble_info
+    !     ! assemble_info(i,:) = [coe_num(i), coe_fun_dim(i), i_dim_trial(i), deriv_type_trial(i), i_dim_test(i), deriv_type_test(i)]
+    !     procedure(func) :: coe_fun
+    !     real(8), intent(out), dimension(:,:), allocatable :: A
+
+    !     integer :: i_dim_trial, deriv_type_trial, i_dim_test, deriv_type_test, coe_fun_dim, coe_num
+    !     integer :: i_elem
+
+    ! end subroutine AssembleMatrix
+
+end module fe_utils
