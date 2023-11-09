@@ -4,9 +4,13 @@ module settings
     ! Dimension : only support 2D
     integer, parameter :: DIM__ = 2
 
+    ! Mesh type
+    integer, parameter :: MESH_TRIANGLE = 3
+    integer, parameter :: MESH_QUAD = 4
+
     ! Basis type
     integer, parameter :: DOF_P1 = 1
-    ! integer, parameter :: DOF_P2 = 2
+    integer, parameter :: DOF_P2 = 2
     integer, parameter :: DOF_Q1 = 101
 
     ! Derivative type
@@ -42,13 +46,16 @@ module settings
     end interface
 
     type :: mesh2D
-        integer :: N_node, N_elem, N_edge, N_le
+        integer :: mesh_type
+        integer :: N_node, N_elem, N_edge, N_le, N_bdryedge
         integer, dimension(:,:), allocatable :: ElemNodeConn
         integer, dimension(:,:), allocatable :: EdgeNodeConn
         integer, dimension(:,:), allocatable :: ElemEdgeConn
         integer, dimension(:,:), allocatable :: EdgeElemConn
+        integer, dimension(:,:), allocatable :: EdgeIdxInElem
         real(8), dimension(:,:), allocatable :: NodeCoord
-        integer, dimension(:), allocatable :: EdgeMarker
+        integer, dimension(:), allocatable :: BdryEdge
+        integer, dimension(:), allocatable :: BdryMarker
         real(8) :: hmax
     end type mesh2D
 
@@ -61,5 +68,14 @@ module settings
     end type
     
 contains
+
+    subroutine assert(x)
+        logical :: x
+
+        if (.not. x) then
+            write(*,*) "assertion failed. "
+            stop
+        end if
+    end subroutine assert
     
 end module settings

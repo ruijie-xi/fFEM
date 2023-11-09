@@ -1,7 +1,7 @@
 PROGRAM test_interpolation
     use settings
-    use mesh, only: MeshInit, PrintMesh
-    use fe, only: fespace_init, Interpolate
+    use mesh, only: MeshInit, MeshFree
+    use fe, only: fespaceInit, Interpolate, fespaceFree
     use mesh_generator, only:TriangleMesh,SquareMesh
     use timer
     use fe_utils
@@ -14,45 +14,50 @@ PROGRAM test_interpolation
     real(8), allocatable, dimension(:) :: u
     procedure(func) :: test_func
 
-    real :: t_test
     real(8) :: value
     real(8), dimension(:), allocatable :: values
 
     integer :: Nx,Ny
+    integer :: i_loop
 
     integer, dimension(:,:), allocatable :: elems
     real(8), dimension(:,:), allocatable :: nodes
 
-    character(len=100) :: arg
-    integer, parameter :: Gauss_type = QuadPt9
+    integer, parameter :: mesh_type = MESH_TRIANGLE
+    integer, parameter :: DOF_type = DOF_P2
+    integer, parameter :: Gauss_type = TrianglePt9
+    integer, parameter :: fe_dim = 2
 
-    call getarg(1, arg)
-    read(arg,*) Nx
-    call getarg(2, arg)
-    read(arg,*) Ny
+    Nx = 10
+    Ny = 10
 
-    call timer_start()
-    call SquareMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
-    call MeshInit(elems,nodes,Th)
-    call timer_end(t_test)
-    write(*,*) "Time taken = ", t_test
+    do i_loop = 1,5
+        write(*,*) "Nx = ", Nx, "Ny = ", Ny
 
-    call timer_start()
-    call fespace_init(Vh, Th, DOF_Q1, 2)
-    call Interpolate(u, test_func, Th,Vh)
-    call ComputeIntegral(u, Th, Vh, Gauss_type, values)
-    write(*,*) "Integral", values
-    call ComputeNorm(u, Th, Vh, NORM_L2, Gauss_type, value)
-    write(*,*) "Norm L2 ", value
-    call ComputeError(test_func, u, Th, Vh, NORM_L2, Gauss_type, value)
-    write(*,*) "Error L2", value
-    call ComputeError(test_func, u, Th, Vh, NORM_H1, Gauss_type, value)
-    write(*,*) "Error H1", value
-    call timer_end(t_test)
+        if (mesh_type == MESH_TRIANGLE) then
+            call TriangleMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
+        elseif (mesh_type == MESH_QUAD) then
+            call SquareMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
+        end if
+        call MeshInit(elems,nodes,Th)
+    
+        call fespaceInit(Vh, Th, DOF_type, fe_dim)
+        call Interpolate(u, test_func, Th,Vh)
+        call ComputeIntegral(u, Th, Vh, Gauss_type, values)
+        write(*,*) "Integral", values
+        call ComputeNorm(u, Th, Vh, NORM_L2, Gauss_type, value)
+        write(*,*) "Norm L2 ", value
+        call ComputeError(test_func, u, Th, Vh, NORM_L2, Gauss_type, value)
+        write(*,*) "Error L2", value
+        call ComputeError(test_func, u, Th, Vh, NORM_H1, Gauss_type, value)
+        write(*,*) "Error H1", value
 
-    write(*,*) "Time taken = ", t_test
+        call fespaceFree(Vh)
+        call MeshFree(Th)
 
-    call PlotFunction(u, Th, Vh, "test.vtk")
+        Nx = Nx*2
+        Ny = Ny*2
+    end do
 
 END PROGRAM test_interpolation
 

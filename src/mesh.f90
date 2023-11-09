@@ -1,7 +1,6 @@
 module mesh
     use readmeshfile
     use settings
-    use solver, only: CreateMat
     implicit none
 contains
 
@@ -15,6 +14,17 @@ contains
         N_node = size(Nodes,2)
         N_elem = size(Elems,2)
         N_le = size(Elems,1)
+
+        if (N_le .eq. 3) then
+            write(*,*) "MeshInit: Triangle mesh detected."
+            Th%mesh_type = MESH_TRIANGLE
+        elseif (N_le .eq. 4) then
+            write(*,*) "MeshInit: Quadrilateral mesh detected."
+            Th%mesh_type = MESH_QUAD
+        else
+            write(*,*) "MeshInit: Only support triangle or quadrilateral mesh."
+            stop
+        end if
 
         ! check the orientation of the elements (triangle only)
         if (N_le .eq. 3) then
@@ -39,9 +49,21 @@ contains
         call GetMeshhmax(Th)
     end subroutine
 
+    subroutine MeshFree(Th)
+        type(mesh2D), intent(inout) :: Th
+        deallocate(Th%ElemNodeConn)
+        deallocate(Th%EdgeNodeConn)
+        deallocate(Th%ElemEdgeConn)
+        deallocate(Th%EdgeElemConn)
+        deallocate(Th%EdgeIdxInElem)
+        deallocate(Th%NodeCoord)
+        deallocate(Th%BdryEdge)
+        deallocate(Th%BdryMarker)
+    end subroutine
+
     subroutine PrintMesh(Th)
         type(mesh2D), intent(in) :: Th
-        integer :: i_elem,i_node,i_edge
+        integer :: i_elem,i_node,i_edge,i_bdry
         write(*,*) " "
         write(*,*) " Mesh statistics ..... "
         write(*,*) " nElem    ", Th%N_elem
@@ -95,15 +117,24 @@ contains
         end do
 
         write(*,*) " "
-        write(*,*) " Edge markers "
+        write(*,*) " Edge index in elements "
         write(*,*) " "
-        write(*,*) " Edge#   Marker"
-        write(*,*) " -----   -----"
+        write(*,*) " Edge#   Elem1   Elem2"
+        write(*,*) " -----   -----   -----"
         do i_edge=1,Th%N_edge
-            write(*,*) i_edge, Th%EdgeMarker(i_edge)
+            write(*,*) i_edge, Th%EdgeIdxInElem(1,i_edge), Th%EdgeIdxInElem(2,i_edge)
         end do
         
 
+        ! boundary information
+        write(*,*) " "
+        write(*,*) " Boundary Edges"
+        write(*,*) " "
+        write(*,*) " Bdry#   Edge   Marker"
+        write(*,*) " -----   -----   -----"
+        do i_bdry = 1, Th%N_bdryedge
+            write(*,*) i_bdry, Th%BdryEdge(i_bdry), Th%BdryMarker(i_bdry)
+        end do
 
     end subroutine PrintMesh
 
@@ -114,14 +145,19 @@ contains
         integer :: count_edges
         integer, dimension(:,:), allocatable :: EdgeNodeConn
         integer, dimension(:,:), allocatable :: EdgeElemConn
+        integer, dimension(:,:), allocatable :: EdgeIdxInElem
         integer, dimension(:,:), allocatable :: Edge_map
+
+        integer, dimension(:), allocatable :: one2N_edge
 
         ! allocate memory
         allocate(Th%ElemEdgeConn(Th%N_le,Th%N_elem))
         allocate(EdgeElemConn(2,Th%N_elem*Th%N_le))
+        allocate(EdgeIdxInElem(2,Th%N_elem*Th%N_le))
         allocate(EdgeNodeConn(2,Th%N_elem*Th%N_le))
         allocate(Edge_map(Th%N_node,Th%N_node))
-        EdgeElemConn = -1
+        EdgeElemConn = 0
+        EdgeIdxInElem = -1
         Edge_map = 0
 
         count_edges = 0
@@ -151,10 +187,12 @@ contains
                 Th%ElemEdgeConn(i_le,i_elem) = factor*Edge_map(i_node1,i_node2)
 
                 ! Update EdgeElemConn
-                if (EdgeElemConn(2, i_edge) > 0) then
-                    EdgeElemConn(1, i_edge) = i_elem
+                if (EdgeElemConn(2, i_edge) .ne. 0) then
+                    EdgeElemConn(1, i_edge) = factor*i_elem
+                    EdgeIdxInElem(1, i_edge) = i_le
                 else
-                    EdgeElemConn(2, i_edge) = i_elem
+                    EdgeElemConn(2, i_edge) = factor*i_elem
+                    EdgeIdxInElem(2, i_edge) = i_le
                 end if
             end do
         end do
@@ -164,15 +202,20 @@ contains
         Th%EdgeNodeConn = EdgeNodeConn(:,1:count_edges)
         allocate(Th%EdgeElemConn(2,count_edges))
         Th%EdgeElemConn = EdgeElemConn(:,1:count_edges)
+        allocate(Th%EdgeIdxInElem(2,count_edges))
+        Th%EdgeIdxInElem = EdgeIdxInElem(:,1:count_edges)
         Th%N_edge = count_edges
 
-        ! allocate the edge markers
-        allocate(Th%EdgeMarker(Th%N_edge))
-        Th%EdgeMarker = 0
+        ! allocate the boundary edges and markers
+        Th%N_bdryedge = count(Th%EdgeElemConn(1,:)==0)
+        allocate(Th%BdryEdge(Th%N_bdryedge))
+        allocate(Th%BdryMarker(Th%N_bdryedge))
 
-        where (Th%EdgeElemConn(1,:) .eq. -1)
-            Th%EdgeMarker = 1
-        end where
+        ! get the boundary edges
+        one2N_edge = (/ (i_edge,i_edge=1,Th%N_edge) /)
+        Th%BdryEdge = pack(one2N_edge,Th%EdgeElemConn(1,:)==0)
+        Th%BdryMarker = 0
+        
 
     end subroutine GenerateTopo2D
 
@@ -251,6 +294,86 @@ contains
         write(*,*) "Orientation Checked. ", count, "elements fliped."
 
     end subroutine CheckOrientation
+
+
+    subroutine AddBdryMarker(Th, fun, marker)
+        type(mesh2D), intent(inout) :: Th
+        procedure(func) :: fun
+        integer,intent(in) :: marker
+
+        integer :: i_bdry, i_edge, i_node1, i_node2
+        real(8),dimension(:),allocatable :: val1, val2
+        real(8),parameter :: eps = 1d-8
+
+        do i_bdry = 1,Th%N_bdryedge
+            i_edge = Th%BdryEdge(i_bdry)
+            i_node1 = Th%EdgeNodeConn(1,i_edge)
+            i_node2 = Th%EdgeNodeConn(2,i_edge)
+            
+            call fun(Th%NodeCoord(:,i_node1), val1, DERIV_NONE)
+            call fun(Th%NodeCoord(:,i_node2), val2, DERIV_NONE)
+
+            call assert(size(val1)==1 .and. size(val2)==1)
+            if (abs(val1(1))<eps .and. abs(val2(1))<eps) then
+                Th%BdryMarker(i_bdry) = marker
+            end if
+        end do
+    end subroutine AddBdryMarker
+
+    ! get the end points of a local line in reference element
+    subroutine getRefLinePts(mesh_type, i_local_edge, vertices)
+        integer, intent(in) :: mesh_type, i_local_edge
+        real(8), dimension(:,:), intent(out), allocatable :: vertices
+
+        allocate(vertices(2,2))
+
+        if(mesh_type==MESH_TRIANGLE) then
+            select case(i_local_edge)
+            case(1)
+                vertices(:,1) = (/0d0, 0d0/)
+                vertices(:,2) = (/1d0, 0d0/)
+            case(2)
+                vertices(:,1) = (/1d0, 0d0/)
+                vertices(:,2) = (/0d0, 1d0/)
+            case(3)
+                vertices(:,1) = (/0d0, 1d0/)
+                vertices(:,2) = (/0d0, 0d0/)
+            case default
+                write(*,*) "getRefLinePts: i_local_edge not supported. "
+            end select
+        elseif (mesh_type==MESH_QUAD) then
+            select case(i_local_edge)
+            case(1)
+                vertices(:,1) = (/0d0, 0d0/)
+                vertices(:,2) = (/1d0, 0d0/)
+            case(2)
+                vertices(:,1) = (/1d0, 0d0/)
+                vertices(:,2) = (/1d0, 1d0/)
+            case(3)
+                vertices(:,1) = (/1d0, 1d0/)
+                vertices(:,2) = (/0d0, 1d0/)
+            case(4)
+                vertices(:,1) = (/0d0, 1d0/)
+                vertices(:,2) = (/0d0, 0d0/)
+            case default
+                write(*,*) "getRefLinePts: i_local_edge not supported. "
+            end select
+        else
+            write(*,*) "getRefLinePts: mesh_type not supported. "
+        end if
+    end subroutine getRefLinePts
+
+    ! get the end points of a local line in any element
+    subroutine getAnyLinePts(Th, i_elem, i_local_edge, vertices)
+        type(mesh2D) :: Th
+        integer, intent(in) :: i_local_edge,i_elem
+        real(8), dimension(:,:), intent(out), allocatable :: vertices
+
+        allocate(vertices(2,2))
+
+        vertices = Th%NodeCoord(:,Th%ElemNodeConn([i_local_edge,mod(i_local_edge,Th%N_le)+1],i_elem))
+
+    end subroutine getAnyLinePts
 
     
 end module mesh

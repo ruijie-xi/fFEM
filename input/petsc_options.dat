@@ -1,4 +1,4 @@
 -ksp_type gmres
--pc_type ilu
+-pc_type gamg
 -ksp_rtol 1e-10
 -ksp_max_it 2000

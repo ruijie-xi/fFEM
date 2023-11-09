@@ -201,7 +201,7 @@ contains
 
         call getGaussQuadRefLine(Gauss_type, x_ref, w_ref)
 
-        allocate(x(1,size(w_ref)))
+        allocate(x(2,size(w_ref)))
         allocate(w(size(w_ref)))
         x(1,:) = mid(1) + x_ref(1,:) * (pt2(1)-pt1(1)) / 2d0
         x(2,:) = mid(2) + x_ref(1,:) * (pt2(2)-pt1(2)) / 2d0

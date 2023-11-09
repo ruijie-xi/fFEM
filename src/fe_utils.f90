@@ -1,8 +1,8 @@
 module fe_utils
     use settings
     use quadrature
-    use fe, only: getLocalDof
-    use basis, only: BasisLocal2D
+    use fe, only: getLocalDof, BasisLocal2D
+    use mesh, only: getAnyLinePts, getRefLinePts
     implicit none
     
 contains
@@ -283,19 +283,64 @@ contains
 
     end subroutine LocalVector
 
-    ! ! Global Matrix Assembler
-    ! subroutine AssembleMatrix(coe_fun, Th, Vh_trial, Vh_test, assemble_info, Gauss_type, A)
-    !     integer, intent(in) :: Gauss_type
-    !     type(mesh2D), intent(in) :: Th
-    !     type(fespace), intent(in) :: Vh_trial, Vh_test
-    !     integer, dimension(:,:), intent(in) :: assemble_info
-    !     ! assemble_info(i,:) = [coe_num(i), coe_fun_dim(i), i_dim_trial(i), deriv_type_trial(i), i_dim_test(i), deriv_type_test(i)]
-    !     procedure(func) :: coe_fun
-    !     real(8), intent(out), dimension(:,:), allocatable :: A
 
-    !     integer :: i_dim_trial, deriv_type_trial, i_dim_test, deriv_type_test, coe_fun_dim, coe_num
-    !     integer :: i_elem
+    ! Local Vector Assembler (integral on line)
+    subroutine LocalVectorLine(i_edge, i_elem, coe_fun, coe_fun_dim, Th, Vh_test, i_dim_test, deriv_type_test, Gauss_type, localvec)
+        integer, intent(in) :: i_edge, i_elem, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) ::  Vh_test
+        procedure(func) :: coe_fun
+        real(8), intent(out), dimension(:), allocatable :: localvec
 
-    ! end subroutine AssembleMatrix
+        ! Basis functions
+        real(8), dimension(:,:,:), allocatable :: basis_test
+
+        ! coefficient function
+        real(8), dimension(:), allocatable :: coe_value,tmp
+
+        integer :: i_pt
+        integer :: i_edge2elemlocal,i_localedge
+
+        ! Gauss quadrature
+        real(8),dimension(:,:), allocatable :: vertices
+        real(8), dimension(:,:), allocatable :: x_ref,x
+        real(8), dimension(:), allocatable :: w_ref,w
+    
+        ! Find the local edge index
+        if(abs(Th%EdgeElemConn(1,i_edge)) == i_elem) then
+            i_edge2elemlocal = 1
+        elseif (abs(Th%EdgeElemConn(2,i_edge)) == i_elem) then
+            i_edge2elemlocal = 2
+        else
+            print *, "Error: i_edge not on i_elem"
+            stop
+        end if
+        i_localedge = Th%EdgeIdxInElem(i_edge2elemlocal,i_edge)
+        
+        ! get Gauss quadrature points and weights (x_ref and w)
+        call getRefLinePts(Th%mesh_type, i_localedge, vertices)
+        call getGaussQuadAnyLine(vertices, Gauss_type, x_ref, w_ref)
+        deallocate(vertices)
+        call getAnyLinePts(Th, i_elem, i_localedge, vertices)
+        call getGaussQuadAnyLine(vertices, Gauss_type, x, w)
+        
+        ! Basis functions
+        call BasisLocal2D(x_ref, Th, Vh_test, i_elem, deriv_type_test, basis_test)
+        
+        ! coefficient function
+        allocate(coe_value(size(x,2)))
+        do i_pt = 1, size(x, 2)
+            call coe_fun(x(:,i_pt), tmp, DERIV_NONE)
+            coe_value(i_pt) = tmp(coe_fun_dim)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*coe_value(i_pt)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*w(i_pt)
+        end do
+
+        ! local vector
+        allocate(localvec(Vh_test%N_local_basis))
+        localvec = sum(basis_test(i_dim_test,:,:), 2)
+
+    end subroutine LocalVectorLine
+
 
 end module fe_utils

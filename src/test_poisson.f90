@@ -9,8 +9,8 @@ program test_possion
     use petscksp
     use petscpc
     use settings
-    use mesh, only: MeshInit, PrintMesh
-    use fe, only: fespace_init, Interpolate
+    use mesh, only: MeshInit, PrintMesh, AddBdryMarker
+    use fe, only: fespaceInit, Interpolate
     use mesh_generator, only:TriangleMesh,SquareMesh
     use timer
     use fe_utils
@@ -29,12 +29,14 @@ program test_possion
 
     ! fe space
     type(fespace) :: Vh
-    integer, parameter :: DOF_type = DOF_P1
+    integer, parameter :: mesh_type = MESH_TRIANGLE
+    integer, parameter :: DOF_type = DOF_P2
     integer, parameter :: Gauss_type = TrianglePt9
+    integer, parameter :: Gauss_type_bdry = LinePt3
     
     ! functions
     real(8), allocatable, dimension(:) :: u
-    procedure(func) :: u_func, rhs_func, one_func
+    procedure(func) :: u_func, rhs_func, one_func, NeumannBdry_func, g_func
 
     ! timer
     real :: t_test
@@ -63,15 +65,20 @@ program test_possion
 
     ! generate mesh
     call timer_start()
-    call TriangleMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
+    if (mesh_type == MESH_TRIANGLE) then
+        call TriangleMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
+    elseif (mesh_type == MESH_QUAD) then
+        call SquareMesh(0d0,1d0,0d0,1d0,Nx,Ny,elems,nodes)
+    end if
     call MeshInit(elems,nodes,Th)
+    call AddBdryMarker(Th, NeumannBdry_func, 2)
     call timer_end(t_test)
     write(*,*) "Mesh generation done. Time taken = ", t_test
 
     ! initialize fe space and petsc
     call timer_start()
-    call fespace_init(Vh, Th, DOF_type, 2)
-    call PetscInitialize("petsc_options.dat", ierr)
+    call fespaceInit(Vh, Th, DOF_type, 2)
+    call PetscInitialize("input/petsc_options.dat", ierr)
     call CreateMat(A, Vh%N_DOF, Vh%N_DOF, ierr)
     call CreateVec(b, Vh%N_DOF, ierr)
     call CreateVec(x, Vh%N_DOF, ierr)
@@ -87,13 +94,17 @@ program test_possion
     assemble_info(2,:) = (/1, 1, 1, DERIV_DY, 1, DERIV_DY/)
     assemble_info(3,:) = (/1, 1, 2, DERIV_DX, 2, DERIV_DX/)
     assemble_info(4,:) = (/1, 1, 2, DERIV_DY, 2, DERIV_DY/)
-    call AssembleMatrixElement(one_func, Th, Vh, Vh, assemble_info, Gauss_type, ierr, A)
+    call AssembleMatrixElement(one_func, Th, Vh, 0, Vh, 0, assemble_info, Gauss_type, ierr, A)
     deallocate(assemble_info)
     allocate(assemble_info(2,4))
     assemble_info(1,:) = (/1, 1, 1, DERIV_NONE/)
     assemble_info(2,:) = (/1, 2, 2, DERIV_NONE/)
-    call AssembleVectorElement(rhs_func, Th, Vh, assemble_info, Gauss_type, ierr, b)
+    call AssembleVectorElement(rhs_func, Th, Vh, 0, assemble_info, Gauss_type, ierr, b)
     deallocate(assemble_info)
+    allocate(assemble_info(2,4))
+    assemble_info(1,:) = (/1, 1, 1, DERIV_NONE/)
+    assemble_info(2,:) = (/1, 2, 2, DERIV_NONE/)
+    call AssembleVectorBdry(2, g_func, Th, Vh, 0, assemble_info, Gauss_type_bdry, ierr, b)
     call timer_end(t_test)
     write(*,*) "Assemble Done. Time taken = ", t_test
 
@@ -141,7 +152,7 @@ subroutine rhs_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = 5d0*pi*pi*sin(pi*x(1))*sin(2d0*pi*x(2))
+        f(1) = 5d0*sin(x(1))*sin(2d0*x(2))
         f(2) = - (3d0*exp(x(1)+x(2)*x(2)) + 4d0*x(2)*x(2)*exp(x(1)+x(2)*x(2)))
     end select
 end subroutine rhs_func
@@ -158,13 +169,13 @@ subroutine u_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = sin(pi*x(1))*sin(2d0*pi*x(2))
+        f(1) = sin(x(1))*sin(2d0*x(2))
         f(2) = exp(x(1)+x(2)*x(2))
     case(DERIV_DX)
-        f(1) = pi*cos(pi*x(1))*sin(2d0*pi*x(2))
+        f(1) = cos(x(1))*sin(2d0*x(2))
         f(2) = exp(x(1)+x(2)*x(2))
     case(DERIV_DY)
-        f(1) = 2d0*pi*sin(pi*x(1))*cos(2d0*pi*x(2))
+        f(1) = 2d0*sin(x(1))*cos(2d0*x(2))
         f(2) = 2d0*x(2)*exp(x(1)+x(2)*x(2))
     end select
 end subroutine u_func
@@ -195,7 +206,7 @@ subroutine DirichletBC(A, b, Th, Vh, bndy_func, ierr)
     procedure(func) :: bndy_func
     integer :: ierr
 
-    integer :: i_edge,i_dof
+    integer :: i_edge,i_dof,i_bdry
     real(8) :: DbndyVal(1)
     real(8), parameter :: large = 1d10
     integer, dimension(:), allocatable :: dof_index
@@ -203,13 +214,9 @@ subroutine DirichletBC(A, b, Th, Vh, bndy_func, ierr)
     real(8), dimension(1) :: x
     integer, dimension(1) :: ind
 
-    call MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY, ierr)
-    call MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY, ierr)
-    call VecAssemblyBegin(b, ierr)
-    call VecAssemblyEnd(b, ierr)
-
-    do i_edge = 1, Th%N_edge
-        if (Th%EdgeMarker(i_edge) == 1) then
+    do i_bdry = 1, Th%N_bdryedge
+        i_edge = Th%BdryEdge(i_bdry)
+        if (Th%BdryMarker(i_bdry) == 0) then
             call getEdgeDofIndex(Th, Vh, i_edge, dof_index)
             do i_dof = 1,size(dof_index)
                 call ComputeDof(DbndyVal(1), bndy_func, Th, Vh, dof_index(i_dof))
@@ -222,9 +229,35 @@ subroutine DirichletBC(A, b, Th, Vh, bndy_func, ierr)
         end if
     end do
 
-    call MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY, ierr)
-    call MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY, ierr)
-    call VecAssemblyBegin(b, ierr)
-    call VecAssemblyEnd(b, ierr)
-
 end subroutine DirichletBC
+
+subroutine NeumannBdry_func(x,f,deriv_type)
+    use settings
+    implicit none
+    real(8), intent(in), dimension(:) :: x
+    real(8), dimension(:), allocatable :: f
+    integer, intent(in) :: deriv_type
+
+    if (.not. allocated(f)) allocate(f(1))
+
+    select case(deriv_type)
+    case(DERIV_NONE)
+        f(1) = x(1)-1d0
+    end select
+end subroutine NeumannBdry_func
+
+subroutine g_func(x,f,deriv_type)
+    use settings
+    implicit none
+    real(8), intent(in), dimension(:) :: x
+    real(8), dimension(:), allocatable :: f
+    integer, intent(in) :: deriv_type
+
+    if (.not. allocated(f)) allocate(f(2))
+
+    select case(deriv_type)
+    case(DERIV_NONE)
+        f(1) = cos(x(1))*sin(2d0*x(2))
+        f(2) = exp(x(1)+x(2)*x(2))
+    end select
+end subroutine g_func

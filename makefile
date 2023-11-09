@@ -31,8 +31,10 @@ OBJECT_FILES = memory_usage.o \
 		solverpetsc.o \
 		readmeshfile.o mesh.o\
 		quadrature.o \
+		fespace_P1.o \
+		fespace_Q1.o \
+		fespace_P2.o \
 		fe.o \
-		basis.o \
 		fe_utils.o \
 		visualize.o \
 		solver.o \
