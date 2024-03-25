@@ -148,23 +148,22 @@ contains
         end if
 
         if(A_triplet%actual_nnz /= A_triplet%N_nz) then
-            print *, "Error: Matrix must be fully filled"
-            stop
+            print *, "Warning: Matrix is not fully filled, and will be converted to column format anyway."
         end if
 
         ! use UMFPACK to convert triplet to column format (square matrix only)
 
         call ums2in(icntl, cntl, keep)
 
-        allocate(xx(2*A_triplet%N_nz))
-        xx(1:A_triplet%N_nz) = A_triplet%val
-        allocate(ii(A_triplet%N_nz+max(2*A_triplet%N_nz, A_triplet%N_row+1)))
-        ii(1:A_triplet%N_nz) = A_triplet%row_idx
-        ii(A_triplet%N_nz+1:2*A_triplet%N_nz) = A_triplet%col_idx
+        allocate(xx(2*A_triplet%actual_nnz))
+        xx(1:A_triplet%actual_nnz) = A_triplet%val(1:A_triplet%actual_nnz)
+        allocate(ii(A_triplet%actual_nnz+max(2*A_triplet%actual_nnz, A_triplet%N_row+1)))
+        ii(1:A_triplet%actual_nnz) = A_triplet%row_idx(1:A_triplet%actual_nnz)
+        ii(A_triplet%actual_nnz+1:2*A_triplet%actual_nnz) = A_triplet%col_idx(1:A_triplet%actual_nnz)
 
         allocate(w(A_triplet%N_row),wp(A_triplet%N_row+1))
 
-        N_nz = A_triplet%N_nz
+        N_nz = A_triplet%actual_nnz
 
         call ums2co(A_triplet%N_row, N_nz, .false., &
         xx, size(xx), info, icntl, ii, size(ii), w, wp, 1)
@@ -183,12 +182,40 @@ contains
         ! sort row indices
         do i_col = 1, A_column%N_col
             nnz_col = A_column%col_ptr(i_col+1) - A_column%col_ptr(i_col)
+            if (nnz_col == 0) cycle
             allocate(index(nnz_col))
             index = [(i, i=1, nnz_col)]
             call quicksort(A_column%row_idx(A_column%col_ptr(i_col):A_column%col_ptr(i_col+1)-1), index)
             A_column%val(A_column%col_ptr(i_col):A_column%col_ptr(i_col+1)-1) = A_column%val(A_column%col_ptr(i_col)+index-1)
             deallocate(index)
         end do
+
+    end subroutine
+
+    subroutine MatrixColumn2Triplet(A_column, A_triplet)
+        implicit none
+        type(MATRIX_COLUMN), intent(in) :: A_column
+        type(MATRIX_TRIPLET), intent(out) :: A_triplet
+
+        integer :: i, j, k
+
+        A_triplet%N_row = A_column%N_row
+        A_triplet%N_col = A_column%N_col
+        A_triplet%N_nz = A_column%N_nz
+
+        allocate(A_triplet%row_idx(A_column%N_nz), A_triplet%col_idx(A_column%N_nz), A_triplet%val(A_column%N_nz))
+
+        k = 0
+        do j = 1, A_column%N_col
+            do i = A_column%col_ptr(j), A_column%col_ptr(j+1)-1
+                k = k + 1
+                A_triplet%row_idx(k) = A_column%row_idx(i)
+                A_triplet%col_idx(k) = j
+                A_triplet%val(k) = A_column%val(i)
+            end do
+        end do
+
+        A_triplet%actual_nnz = A_column%N_nz
 
     end subroutine
 
@@ -236,7 +263,33 @@ contains
             print *, i, A%val(i)
         end do
 
-        
+    end subroutine
+
+    subroutine MatrixTripletPrint(A)
+        implicit none
+        type(MATRIX_TRIPLET), intent(in) :: A
+
+        integer :: i
+
+        print *, "N_row: ",A%N_row, "N_col: ",A%N_col, "N_nz: ",A%N_nz
+
+        ! show row indices of non-zero elements
+        print *, "row indices"
+        do i = 1, A%N_nz
+            print *, i, A%row_idx(i)
+        end do
+
+        ! show column indices of non-zero elements
+        print *, "column indices"
+        do i = 1, A%N_nz
+            print *, i, A%col_idx(i)
+        end do
+
+        ! show value
+        print *, "values"
+        do i = 1, A%N_nz
+            print *, i, A%val(i)
+        end do
 
     end subroutine
 

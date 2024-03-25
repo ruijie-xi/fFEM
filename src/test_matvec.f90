@@ -10,7 +10,7 @@ program test_matvec
     ! [6, 0, 0, 7, 0]   [0, 0, 0, 0, 9]
     ! [0, 8, 0, 0, 9]   [0, 0, 0, 0, 0]
     
-    type(MATRIX_TRIPLET) :: A1, A2, A3
+    type(MATRIX_TRIPLET) :: A1, A2, A3, A3_triplet
     type(MATRIX_COLUMN) :: A3_column
 
     real(8) :: val
@@ -38,5 +38,8 @@ program test_matvec
     print *, "the value at (3, 3) is ", val
     call MatrixColumnGet(A3_column, 3, 5, val)
     print *, "the value at (3, 5) is ", val
+
+    call MatrixColumn2Triplet(A3_column, A3_triplet)
+    call MatrixTripletPrint(A3_triplet)
 
 end program test_matvec

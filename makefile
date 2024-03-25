@@ -27,12 +27,12 @@ OBJECT_FILES = memory_usage.o \
 		tools.o \
 		quicksort.o \
 		settings.o \
+		matvec.o \
 		mesh_generator.o \
 		timer.o \
 		writervtk.o \
 		readmeshfile.o \
 		mesh.o\
-		matvec.o \
 		quadrature.o \
 		fespace_P0.o \
 		fespace_DG1.o \
@@ -70,6 +70,9 @@ $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.F
 
 ffem: ${OBJECTS}
 	ar rcs lib/libffem.a $^
+
+test_interpolation: ffem $(OBJECT_DIR)/test_interpolation.o  
+	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 test_poisson: ffem $(OBJECT_DIR)/test_poisson.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}

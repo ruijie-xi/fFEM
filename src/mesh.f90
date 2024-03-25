@@ -1,5 +1,6 @@
 module mesh
     use tools
+    use matvec
     use readmeshfile
     use settings
     implicit none
@@ -44,7 +45,7 @@ contains
         Th%NodeCoord = Nodes
 
         ! generate topology information, including EdgeNodeConn, ElemEdgeConn, EdgeElemConn
-        call GenerateTopo2D(Th)
+        call GenerateTopo2D_new(Th)
 
         ! get hmax
         call getMeshhmax(Th)
@@ -236,6 +237,105 @@ contains
         
 
     end subroutine GenerateTopo2D
+
+    ! use sparse matrix to generate topology information
+    subroutine GenerateTopo2D_new(Th)
+        type(mesh2D), intent(inout) :: Th
+        integer :: i_elem,i_le,i_edge,i_node1,i_node2,i_node_tmp,i_bdry,i_nz
+        integer :: factor
+        real(8) :: i_edge_tmp
+
+        integer, dimension(:), allocatable :: one2N_edge
+
+        type(MATRIX_TRIPLET) :: Edge_map_triplet
+        type(MATRIX_COLUMN) :: Edge_map
+
+        call MatrixTripletInit(Edge_map_triplet, Th%N_node, Th%N_node, Th%N_elem*Th%N_le)
+
+        ! find all edges
+        do i_elem=1,Th%N_elem
+            do i_le = 1, Th%N_le
+                i_node1 = Th%ElemNodeConn(i_le,i_elem)
+                i_node2 = Th%ElemNodeConn(mod(i_le,Th%N_le)+1,i_elem)
+                
+                ! sort the nodes of the edge
+                if (i_node1 > i_node2) then
+                    i_node_tmp = i_node1
+                    i_node1 = i_node2
+                    i_node2 = i_node_tmp
+                end if
+
+                call MatrixTripletAddValues(Edge_map_triplet, [i_node1], [i_node2], [1d0])
+
+            end do
+        end do
+
+        call MatrixTriplet2Column(Edge_map_triplet, Edge_map)
+        call MatrixTripletFree(Edge_map_triplet)
+        
+        Th%N_edge = Edge_map%N_nz
+        Edge_map%val = [(i_nz, i_nz=1,Th%N_edge)]
+
+        call MatrixColumn2Triplet(Edge_map, Edge_map_triplet)
+
+        ! generate topology information
+        allocate(Th%ElemEdgeConn(Th%N_le,Th%N_elem))
+        allocate(Th%EdgeNodeConn(2,Th%N_edge))
+        allocate(Th%EdgeElemConn(2,Th%N_edge))
+        allocate(Th%EdgeIdxInElem(2,Th%N_edge))
+        Th%EdgeElemConn = 0
+        Th%EdgeIdxInElem = -1
+
+        do i_edge = 1,Th%N_edge
+            Th%EdgeNodeConn(:,i_edge) = [Edge_map_triplet%row_idx(i_edge), Edge_map_triplet%col_idx(i_edge)]
+        end do
+
+        do i_elem = 1,Th%N_elem
+            do i_le = 1,Th%N_le
+                factor = 1
+                i_node1 = Th%ElemNodeConn(i_le,i_elem)
+                i_node2 = Th%ElemNodeConn(mod(i_le,Th%N_le)+1,i_elem)
+
+                ! sort the nodes of the edge
+                if (i_node1 > i_node2) then
+                    i_node_tmp = i_node1
+                    i_node1 = i_node2
+                    i_node2 = i_node_tmp
+                    factor = -1
+                end if
+
+                call MatrixColumnGet(Edge_map, i_node1, i_node2, i_edge_tmp)
+                i_edge = int(i_edge_tmp)
+                Th%ElemEdgeConn(i_le,i_elem) = factor*i_edge
+
+                ! Update EdgeElemConn
+                if (Th%EdgeElemConn(2, i_edge) .ne. 0) then
+                    Th%EdgeElemConn(1, i_edge) = factor*i_elem
+                    Th%EdgeIdxInElem(1, i_edge) = i_le
+                else
+                    Th%EdgeElemConn(2, i_edge) = factor*i_elem
+                    Th%EdgeIdxInElem(2, i_edge) = i_le
+                end if
+            end do
+        end do
+
+        ! allocate the boundary edges and markers
+        Th%N_bdryedge = count(Th%EdgeElemConn(1,:)==0)
+        allocate(Th%BdryEdge(Th%N_bdryedge))
+        allocate(Th%BdryMarker(Th%N_bdryedge))
+
+        ! get the boundary edges
+        one2N_edge = (/ (i_edge,i_edge=1,Th%N_edge) /)
+        Th%BdryEdge = pack(one2N_edge,Th%EdgeElemConn(1,:)==0)
+        Th%BdryMarker = 0
+
+        allocate(Th%Edge2Bdry(Th%N_edge))
+        Th%Edge2Bdry = 0
+        do i_bdry = 1,Th%N_bdryedge
+            Th%Edge2Bdry(Th%BdryEdge(i_bdry)) = i_bdry
+        end do
+
+    end subroutine GenerateTopo2D_new
 
     subroutine GetLength(node1,node2,edge_length)
         real(8), dimension(:), intent(in) :: node1, node2

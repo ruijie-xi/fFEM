@@ -5,7 +5,7 @@ contains
 
 subroutine DirichletBC(A, b, Th, Vh, bndy_func)
     use settings
-    use matrix
+    use matvec
     use fe
     type(MATRIX_TRIPLET) :: A
     real(8), dimension(:) :: b
@@ -49,7 +49,7 @@ program test_possion
     use timer
     use fe_utils
     use visualize
-    use matrix
+    use matvec
     use assembler
     use memory_usage
     use my_module

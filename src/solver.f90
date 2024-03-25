@@ -24,6 +24,8 @@ subroutine SolverSolve(A,b,x)
     lindex = 5*A%actual_nnz
     allocate(index(lindex),value(lvalue))
 
+    print *, "test  "
+
     index(1:A%actual_nnz) = A%row_idx(1:A%actual_nnz)
     index(A%actual_nnz+1:2*A%actual_nnz) = A%col_idx(1:A%actual_nnz)
     value(1:A%actual_nnz) = A%val(1:A%actual_nnz)
