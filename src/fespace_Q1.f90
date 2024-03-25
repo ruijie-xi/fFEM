@@ -15,6 +15,7 @@ subroutine fespaceInit_Q1(Vh,Th,dim)
     Vh%dim = dim
     Vh%basis_type = DOF_Q1
     Vh%N_DOF = Th%N_node * Vh%dim
+    Vh%isStack = 1
     allocate(Vh%ElemDOF(Vh%N_local_basis*Vh%dim, Th%N_elem))
     Vh%ElemDOF = 0
     do i_dim = 1, Vh%dim

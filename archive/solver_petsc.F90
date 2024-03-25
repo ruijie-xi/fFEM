@@ -1,4 +1,4 @@
-module solver
+module solver_petsc
 #include <petsc/finclude/petscsysdef.h>
 #include <petsc/finclude/petscvecdef.h>
 #include <petsc/finclude/petscmatdef.h>
@@ -60,17 +60,18 @@ contains
 
     end subroutine CreateMat
 
-    subroutine CreateSolver(solver, pc, mat, errpetsc)
+    subroutine CreateSolver(solver, mat, Pmat, errpetsc)
         KSP :: solver
         PC :: pc
         Mat :: mat
+        Mat :: Pmat
         integer :: errpetsc
 
       ! Create the KSP context
       call KSPCreate(PETSC_COMM_WORLD, solver, errpetsc)
       CHKERRQ(errpetsc)
       ! Set the operators for the KSP context
-      call KSPSetOperators(solver, mat, mat, errpetsc)
+      call KSPSetOperators(solver, mat, Pmat, errpetsc)
       CHKERRQ(errpetsc)
       ! Set the KSP type
       call KSPSetType(solver, KSPCG, errpetsc)
@@ -91,7 +92,6 @@ contains
       call KSPGetPC(solver, pc, errpetsc)
       CHKERRQ(errpetsc)
       ! Set the PC context
-      ! call PCSetType(this%pc, PCILU, errpetsc)
       call PCSetType(pc, PCBJACOBI, errpetsc)
       CHKERRQ(errpetsc)
       ! Set PC options from the input file
@@ -109,6 +109,24 @@ contains
         call MatZeroEntries(mat, errpetsc)
         CHKERRQ(errpetsc)
     end subroutine SetZeroMat
+
+    subroutine AssembleMat(mat, errpetsc)
+        Mat :: mat
+        integer :: errpetsc
+        call MatAssemblyBegin(mat, MAT_FINAL_ASSEMBLY, errpetsc)
+        CHKERRQ(errpetsc)
+        call MatAssemblyEnd(mat,MAT_FINAL_ASSEMBLY, errpetsc)
+        CHKERRQ(errpetsc)
+    end subroutine AssembleMat
+
+    subroutine AssembleVec(vec, errpetsc)
+        Vec :: vec
+        integer :: errpetsc
+        call VecAssemblyBegin(vec, errpetsc)
+        CHKERRQ(errpetsc)
+        call VecAssemblyEnd(vec, errpetsc)
+        CHKERRQ(errpetsc)
+    end subroutine AssembleVec
 
     subroutine SetZeroVec(vec, errpetsc)
         Vec :: vec
@@ -171,4 +189,4 @@ contains
 
     end subroutine Solve
 
-end module solver
+end module solver_petsc

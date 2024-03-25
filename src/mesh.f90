@@ -1,4 +1,5 @@
 module mesh
+    use tools
     use readmeshfile
     use settings
     implicit none
@@ -46,7 +47,7 @@ contains
         call GenerateTopo2D(Th)
 
         ! get hmax
-        call GetMeshhmax(Th)
+        call getMeshhmax(Th)
     end subroutine
 
     subroutine MeshFree(Th)
@@ -59,6 +60,7 @@ contains
         deallocate(Th%NodeCoord)
         deallocate(Th%BdryEdge)
         deallocate(Th%BdryMarker)
+        deallocate(Th%Edge2Bdry)
     end subroutine
 
     subroutine PrintMesh(Th)
@@ -74,11 +76,21 @@ contains
         write(*,*) " "
         write(*,*) " Element connectivity "
         write(*,*) " "
-        write(*,*) " Elem#   Node1   Node2   Node3"
-        write(*,*) " -----   -----   -----   -----"
-        do i_elem=1,Th%N_elem
-            write(*,*) i_elem, Th%ElemNodeConn(1,i_elem), Th%ElemNodeConn(2,i_elem), Th%ElemNodeConn(3,i_elem)
-        end do
+        write(*,*) " Elem#   Node1   Node2   Node3   Node4"
+        write(*,*) " -----   -----   -----   -----   -----"
+        if (Th%N_le .eq. 3) then
+            do i_elem=1,Th%N_elem
+                write(*,*) i_elem, Th%ElemNodeConn(1,i_elem), Th%ElemNodeConn(2,i_elem), Th%ElemNodeConn(3,i_elem)
+            end do
+        elseif (Th%N_le .eq. 4) then
+            do i_elem=1,Th%N_elem
+                write(*,*) i_elem, Th%ElemNodeConn(1,i_elem), Th%ElemNodeConn(2,i_elem), Th%ElemNodeConn(3,i_elem),&
+                 Th%ElemNodeConn(4,i_elem)
+            end do
+        else
+            write(*,*) "PrintMesh: Only support triangle or quadrilateral mesh."
+            stop
+        end if
 
         write(*,*) " "
         write(*,*) " Node coordinates "
@@ -140,7 +152,7 @@ contains
 
     subroutine GenerateTopo2D(Th)
         type(mesh2D), intent(inout) :: Th
-        integer :: i_elem,i_le,i_edge,i_node1,i_node2,i_node_tmp
+        integer :: i_elem,i_le,i_edge,i_node1,i_node2,i_node_tmp,i_bdry
         integer :: factor
         integer :: count_edges
         integer, dimension(:,:), allocatable :: EdgeNodeConn
@@ -215,11 +227,17 @@ contains
         one2N_edge = (/ (i_edge,i_edge=1,Th%N_edge) /)
         Th%BdryEdge = pack(one2N_edge,Th%EdgeElemConn(1,:)==0)
         Th%BdryMarker = 0
+
+        allocate(Th%Edge2Bdry(Th%N_edge))
+        Th%Edge2Bdry = 0
+        do i_bdry = 1,Th%N_bdryedge
+            Th%Edge2Bdry(Th%BdryEdge(i_bdry)) = i_bdry
+        end do
         
 
     end subroutine GenerateTopo2D
 
-    subroutine GetEdgeLength(node1,node2,edge_length)
+    subroutine GetLength(node1,node2,edge_length)
         real(8), dimension(:), intent(in) :: node1, node2
         real(8), intent(out) :: edge_length
         integer :: N_dim,i_dim
@@ -230,34 +248,42 @@ contains
             edge_length = edge_length + (node1(i_dim)-node2(i_dim))**2
         end do
         edge_length = sqrt(edge_length)
-    end subroutine GetEdgeLength
+    end subroutine GetLength
 
-    subroutine GetMeshhmax(Th)
+    subroutine getMeshhmax(Th)
         type(mesh2D), intent(inout) :: Th
-        integer :: i_le,i_elem
+        integer :: i_le,i_elem,j
         real(8) :: hmax,h
 
         if (Th%N_le .eq. 3) then
             hmax = 0.0d0
             do i_elem=1,Th%N_elem
                 do i_le=1,Th%N_le
-                    call GetEdgeLength(Th%NodeCoord(:,Th%ElemNodeConn(i_le,i_elem)), &
+                    call GetLength(Th%NodeCoord(:,Th%ElemNodeConn(i_le,i_elem)), &
                         Th%NodeCoord(:,Th%ElemNodeConn(mod(i_le,Th%N_le)+1,i_elem)), h)
-                    if (h > hmax) then
-                        hmax = h
-                    end if
+                    if (h > hmax) hmax = h
                 end do
             end do
             Th%hmax = hmax
         elseif (Th%N_le .eq. 4) then
-            write(*,*) "GetMeshhmax: Not implemented yet."
+            hmax = 0.0d0
+            do i_elem=1,Th%N_elem
+                do i_le=1,Th%N_le
+                    do j = i_le, Th%N_le
+                        call GetLength(Th%NodeCoord(:,Th%ElemNodeConn(i_le,i_elem)), &
+                            Th%NodeCoord(:,Th%ElemNodeConn(j,i_elem)), h)
+                        if (h > hmax) hmax = h
+                    end do
+                end do
+            end do
+            Th%hmax = hmax
         else
-            write(*,*) "GetMeshhmax: Only support triangle or quadrilateral mesh."
+            write(*,*) "getMeshhmax: Only support triangle or quadrilateral mesh."
             stop
         end if
 
         
-    end subroutine GetMeshhmax
+    end subroutine getMeshhmax
 
     !Check all the triangles has positive area
     subroutine CheckOrientation(ElemNodeConn,NodeCoord)
@@ -313,7 +339,7 @@ contains
             call fun(Th%NodeCoord(:,i_node1), val1, DERIV_NONE)
             call fun(Th%NodeCoord(:,i_node2), val2, DERIV_NONE)
 
-            call assert(size(val1)==1 .and. size(val2)==1)
+            call assert(size(val1)==1 .and. size(val2)==1, "val1 and val2 are scalars")
             if (abs(val1(1))<eps .and. abs(val2(1))<eps) then
                 Th%BdryMarker(i_bdry) = marker
             end if
@@ -340,6 +366,8 @@ contains
                 vertices(:,2) = (/0d0, 0d0/)
             case default
                 write(*,*) "getRefLinePts: i_local_edge not supported. "
+                write(*,*) "i_local_edge = ",i_local_edge
+                stop
             end select
         elseif (mesh_type==MESH_QUAD) then
             select case(i_local_edge)
@@ -357,6 +385,8 @@ contains
                 vertices(:,2) = (/0d0, 0d0/)
             case default
                 write(*,*) "getRefLinePts: i_local_edge not supported. "
+                write(*,*) "i_local_edge = ",i_local_edge
+                stop
             end select
         else
             write(*,*) "getRefLinePts: mesh_type not supported. "
@@ -374,6 +404,91 @@ contains
         vertices = Th%NodeCoord(:,Th%ElemNodeConn([i_local_edge,mod(i_local_edge,Th%N_le)+1],i_elem))
 
     end subroutine getAnyLinePts
+
+    subroutine getElementArea(Th, i_elem, area)
+        type(mesh2D), intent(in) :: Th
+        integer, intent(in) :: i_elem
+        real(8), intent(out) :: area
+
+        real(8) :: x1,x2,x3,x4,y1,y2,y3,y4
+        
+        select case(Th%mesh_type)
+        case(MESH_TRIANGLE)
+            x1 = Th%NodeCoord(1, Th%ElemNodeConn(1, i_elem))
+            x2 = Th%NodeCoord(1, Th%ElemNodeConn(2, i_elem))
+            x3 = Th%NodeCoord(1, Th%ElemNodeConn(3, i_elem))
+            y1 = Th%NodeCoord(2, Th%ElemNodeConn(1, i_elem))
+            y2 = Th%NodeCoord(2, Th%ElemNodeConn(2, i_elem))
+            y3 = Th%NodeCoord(2, Th%ElemNodeConn(3, i_elem))
+            area = 5d-1*abs((x2-x1)*(y3-y1) - (x3-x1)*(y2-y1))
+        case(MESH_QUAD)
+            x1 = Th%NodeCoord(1, Th%ElemNodeConn(1, i_elem))
+            x2 = Th%NodeCoord(1, Th%ElemNodeConn(2, i_elem))
+            x3 = Th%NodeCoord(1, Th%ElemNodeConn(3, i_elem))
+            x4 = Th%NodeCoord(1, Th%ElemNodeConn(4, i_elem))
+            y1 = Th%NodeCoord(2, Th%ElemNodeConn(1, i_elem))
+            y2 = Th%NodeCoord(2, Th%ElemNodeConn(2, i_elem))
+            y3 = Th%NodeCoord(2, Th%ElemNodeConn(3, i_elem))
+            y4 = Th%NodeCoord(2, Th%ElemNodeConn(4, i_elem))
+            area = 5d-1*abs((x2-x1)*(y3-y1) - (x3-x1)*(y2-y1)) &
+            + 5d-1*abs((x3-x1)*(y4-y1) - (x4-x1)*(y3-y1))
+        case default
+            write(*,*) "getElementArea: mesh_type not supported. "
+        end select
+
+    end subroutine getElementArea
+
+    subroutine getEdgeNormal(Th, i_edge, normal)
+        type(mesh2D), intent(in) :: Th
+        integer, intent(in) :: i_edge
+        real(8), dimension(2), intent(out) :: normal
+
+        real(8) :: x1,x2,y1,y2
+
+        x1 = Th%NodeCoord(1,Th%EdgeNodeConn(1,i_edge))
+        x2 = Th%NodeCoord(1,Th%EdgeNodeConn(2,i_edge))
+        y1 = Th%NodeCoord(2,Th%EdgeNodeConn(1,i_edge))
+        y2 = Th%NodeCoord(2,Th%EdgeNodeConn(2,i_edge))
+
+        normal(1) = y2-y1
+        normal(2) = x1-x2
+        normal = normal/sqrt(normal(1)**2+normal(2)**2)
+
+    end subroutine getEdgeNormal
+
+    subroutine getEdgeTangent(Th, i_edge, tangent)
+        type(mesh2D), intent(in) :: Th
+        integer, intent(in) :: i_edge
+        real(8), dimension(2), intent(out) :: tangent
+
+        real(8) :: x1,x2,y1,y2
+
+        x1 = Th%NodeCoord(1,Th%EdgeNodeConn(1,i_edge))
+        x2 = Th%NodeCoord(1,Th%EdgeNodeConn(2,i_edge))
+        y1 = Th%NodeCoord(2,Th%EdgeNodeConn(1,i_edge))
+        y2 = Th%NodeCoord(2,Th%EdgeNodeConn(2,i_edge))
+
+        tangent(1) = x2-x1
+        tangent(2) = y2-y1
+        tangent = tangent/sqrt(tangent(1)**2+tangent(2)**2)
+
+    end subroutine getEdgeTangent
+
+    subroutine getEdgeLength(Th, i_edge, length)
+        type(mesh2D), intent(in) :: Th
+        integer, intent(in) :: i_edge
+        real(8), intent(out) :: length
+
+        real(8) :: x1,x2,y1,y2
+
+        x1 = Th%NodeCoord(1,Th%EdgeNodeConn(1,i_edge))
+        x2 = Th%NodeCoord(1,Th%EdgeNodeConn(2,i_edge))
+        y1 = Th%NodeCoord(2,Th%EdgeNodeConn(1,i_edge))
+        y2 = Th%NodeCoord(2,Th%EdgeNodeConn(2,i_edge))
+
+        length = sqrt((x2-x1)**2+(y2-y1)**2)
+
+    end subroutine getEdgeLength
 
     
 end module mesh

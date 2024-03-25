@@ -23,9 +23,9 @@ PROGRAM test_interpolation
     integer, dimension(:,:), allocatable :: elems
     real(8), dimension(:,:), allocatable :: nodes
 
-    integer, parameter :: mesh_type = MESH_TRIANGLE
-    integer, parameter :: DOF_type = DOF_P2
-    integer, parameter :: Gauss_type = TrianglePt9
+    integer, parameter :: mesh_type = MESH_QUAD
+    integer, parameter :: DOF_type = DOF_Q0
+    integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: fe_dim = 2
 
     Nx = 10

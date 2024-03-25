@@ -5,7 +5,7 @@
         {
             "label": "compile",
             "type": "shell",
-            "command": "make test_poisson",
+            "command": "make test_magnetic",
             "options": {
                 "cwd": "${fileWorkspaceFolder}"
             }

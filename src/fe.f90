@@ -1,9 +1,14 @@
 module fe
     use mesh
     use settings
+    use fespace_P0
     use fespace_P1
+    use fespace_DG1
+    use fespace_Q0
     use fespace_Q1
     use fespace_P2
+    use fespace_QuadNedelec1
+    use fespace_QuadRT1
     implicit none
     
 contains
@@ -14,12 +19,22 @@ contains
         integer, intent(in) :: basis_type, dim
 
         select case(basis_type)
+            case(DOF_P0)
+                call fespaceInit_P0(Vh,Th,dim)
             case(DOF_P1)
                 call fespaceInit_P1(Vh,Th,dim)
+            case(DOF_Q0)
+                call fespaceInit_Q0(Vh,Th,dim)
             case(DOF_Q1)
                 call fespaceInit_Q1(Vh,Th,dim)
             case(DOF_P2)
                 call fespaceInit_P2(Vh,Th,dim)
+            case(DOF_DG1)
+                call fespaceInit_DG1(Vh,Th,dim)
+            case(DOF_QuadNedelec1)
+                call fespaceInit_QuadNedelec1(Vh,Th,dim)
+            case(DOF_QuadRT1)
+                call fespaceInit_QuadRT1(Vh,Th,dim)
         end select
 
     end subroutine fespaceInit
@@ -39,6 +54,7 @@ contains
 
         integer :: i_dof
         
+        if (allocated(u)) deallocate(u)
         allocate(u(Vh%N_DOF))
         u = 0.d0
         
@@ -55,19 +71,45 @@ contains
         integer,intent(in) :: i_dof
 
         select case(Vh%basis_type)
-            case(DOF_P1)
-                call ComputeDof_P1(result,fun,Th,i_dof)
-            case(DOF_Q1)
-                call ComputeDof_Q1(result,fun,Th,i_dof)
-            case(DOF_P2)
-                call ComputeDof_P2(result,fun,Th,i_dof)
-            case default
-                print *, "Error: Unknown basis type"
-                stop
+        case(DOF_P0)
+            call ComputeDof_P0(result,fun,Th, Vh, i_dof)
+        case(DOF_P1)
+            call ComputeDof_P1(result,fun,Th,i_dof)
+        case(DOF_Q0)
+            call ComputeDof_Q0(result,fun,Th,Vh,i_dof)
+        case(DOF_Q1)
+            call ComputeDof_Q1(result,fun,Th,i_dof)
+        case(DOF_P2)
+            call ComputeDof_P2(result,fun,Th,i_dof)
+        case(DOF_DG1)
+            call ComputeDof_DG1(result,fun,Th,i_dof)
+        case(DOF_QuadNedelec1)
+            call ComputeDof_QuadNedelec1(result,fun,Th,i_dof)
+        case(DOF_QuadRT1)
+            call ComputeDof_QuadRT1(result,fun,Th,i_dof)
+        case default
+            print *, "Error: Unknown basis type"
+            stop
         end select
     end subroutine ComputeDof
 
-    
+    subroutine getLocalDofIndex(Vh, i_elem, i_dim, idx_local_dof)
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, i_dim
+
+        integer, intent(out), dimension(:), allocatable :: idx_local_dof
+        
+        integer :: N_local_dof
+
+        N_local_dof = Vh%N_local_basis
+        if (allocated(idx_local_dof)) deallocate(idx_local_dof)
+        allocate(idx_local_dof(N_local_dof))
+        if (Vh%isStack.eq.1) then
+            idx_local_dof = Vh%ElemDOF((i_dim-1)*Vh%N_local_basis + 1:(i_dim-1)*Vh%N_local_basis + Vh%N_local_basis,i_elem)
+        elseif (Vh%isStack.eq.0) then
+            idx_local_dof = Vh%ElemDOF(:,i_elem)
+        end if
+    end subroutine
 
     subroutine getLocalDof(u, Vh, i_elem, i_dim, local_dof)
         real(8), dimension(:), intent(in) :: u
@@ -81,8 +123,7 @@ contains
 
         N_local_dof = Vh%N_local_basis
         allocate(local_dof(N_local_dof))
-        allocate(idx_local_dof(N_local_dof))
-        idx_local_dof = Vh%ElemDOF((i_dim-1)*Vh%N_local_basis + 1:(i_dim-1)*Vh%N_local_basis + Vh%N_local_basis,i_elem)
+        call getLocalDofIndex(Vh, i_elem, i_dim, idx_local_dof)
         local_dof = u(idx_local_dof)
     end subroutine
 
@@ -99,6 +140,12 @@ contains
             call getEdgeDofIndex_Q1(Th, Vh, i_edge, dof_index)
         case (DOF_P2)
             call getEdgeDofIndex_P2(Th, Vh, i_edge, dof_index)
+        case (DOF_DG1)
+            call getEdgeDofIndex_DG1(Th, Vh, i_edge, dof_index)
+        case (DOF_QuadNedelec1)
+            call getEdgeDofIndex_QuadNedelec1(Th, Vh, i_edge, dof_index)
+        case (DOF_QuadRT1)
+            call getEdgeDofIndex_QuadRT1(Th, Vh, i_edge, dof_index)
         case default
             print *, "Error: Unknown basis type"
             stop
@@ -118,12 +165,22 @@ contains
         allocate(result(Vh%dim, Vh%N_local_basis, num_pts))
 
         select case (Vh%basis_type)
+        case (DOF_P0)
+            call BasisLocalP0(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_P1)
             call BasisLocalP1(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_Q0)
+            call BasisLocalQ0(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_Q1)
             call BasisLocalQ1(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_P2)
             call BasisLocalP2(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_DG1)
+            call BasisLocalDG1(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_QuadNedelec1)
+            call BasisLocalQuadNedelec1(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_QuadRT1)
+            call BasisLocalQuadRT1(refpts, Th, Vh, i_elem, deriv_type, result)
         case default
             print *, 'BasisLocal2D: Unknown basis type'
             stop

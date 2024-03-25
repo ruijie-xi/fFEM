@@ -9,14 +9,23 @@ module settings
     integer, parameter :: MESH_QUAD = 4
 
     ! Basis type
+    integer, parameter :: DOF_P0 = 0
     integer, parameter :: DOF_P1 = 1
     integer, parameter :: DOF_P2 = 2
+    integer, parameter :: DOF_DG1 = 11
+    integer, parameter :: DOF_Q0 = 100
     integer, parameter :: DOF_Q1 = 101
+    ! integer, parameter :: DOF_Q2 = 102
+    integer, parameter :: DOF_QuadNedelec1 = 111
+    integer, parameter :: DOF_QuadRT1 = 121
 
     ! Derivative type
     integer, parameter :: DERIV_NONE = 0
     integer, parameter :: DERIV_DX = 1
     integer, parameter :: DERIV_DY = 2
+    integer, parameter :: DERIV_DXX = 3
+    integer, parameter :: DERIV_DXY = 4
+    integer, parameter :: DERIV_DYY = 5
 
     ! Norm type
     integer, parameter :: NORM_L2 = 0
@@ -37,7 +46,7 @@ module settings
     integer, parameter :: QuadPt16 = 204
     integer, parameter :: QuadNodeAverage = 205
 
-    interface
+    abstract interface
         subroutine func(x, f, deriv_type)
             real(8), intent(in), dimension(:) :: x
             real(8), dimension(:), intent(out), allocatable :: f
@@ -45,7 +54,7 @@ module settings
         end subroutine
     end interface
 
-    type :: mesh2D
+    type :: MESH2D
         integer :: mesh_type
         integer :: N_node, N_elem, N_edge, N_le, N_bdryedge
         integer, dimension(:,:), allocatable :: ElemNodeConn
@@ -56,26 +65,42 @@ module settings
         real(8), dimension(:,:), allocatable :: NodeCoord
         integer, dimension(:), allocatable :: BdryEdge
         integer, dimension(:), allocatable :: BdryMarker
+        integer, dimension(:), allocatable :: Edge2Bdry
         real(8) :: hmax
-    end type mesh2D
+    end type MESH2D
 
-    type :: fespace
+    type :: FESPACE
         integer :: dim
         integer :: N_local_basis
         integer :: N_DOF
         integer :: basis_type
         integer, dimension(:,:),allocatable :: ElemDOF
-    end type
+        integer :: isStack
+    end type FESPACE
+
+    ! triplet form of sparse matrix (COO format)
+    ! allow duplicate nonzeros
+    type :: MATRIX_TRIPLET
+        integer :: N_row, N_col, N_nz
+        integer, dimension(:), allocatable :: row_idx, col_idx
+        real(8), dimension(:), allocatable :: val
+        integer :: actual_nnz ! number of added non-zero elements
+    end type MATRIX_TRIPLET
+
+    ! column-oriented form of sparse matrix
+    ! col_ptr(N_col+1): the indices of nonzero elements in the ith column is col_ptr(i)->col_ptr(i+1)-1
+    ! row_idx(N_nz): the row indices of each nonzero elements
+    ! val(N_nz): value of nonzero elements
+    type :: MATRIX_COLUMN
+        integer :: N_row, N_col, N_nz
+        integer, dimension(:), allocatable :: col_ptr ! column pointer, N_col+1
+        integer, dimension(:), allocatable :: row_idx ! row index of non-zero elements, N_nz
+        real(8), dimension(:), allocatable :: val ! non-zero elements, N_nz
+    end type MATRIX_COLUMN
+
+    ! some useful constants
+    real(8), parameter :: m_pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
     
 contains
-
-    subroutine assert(x)
-        logical :: x
-
-        if (.not. x) then
-            write(*,*) "assertion failed. "
-            stop
-        end if
-    end subroutine assert
     
 end module settings

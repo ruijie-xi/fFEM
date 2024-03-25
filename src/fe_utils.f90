@@ -193,12 +193,38 @@ contains
         call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
 
         numpts = size(x_ref, 2)
+        if(allocated(result)) deallocate(result)
         allocate(result(Vh%dim,numpts))
         do i_dim = 1,Vh%dim
             call getLocalDof(u, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 
     end subroutine FEfunctionQuadValue
+
+    ! Compute the value of the FE function u at the quadrature points of i_le edge of element i_elem
+    subroutine FEfunctionQuadValueLine(u, Th, Vh, i_elem, i_le, deriv_type, Gauss_type, result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type, Gauss_type, i_le
+        real(8), dimension(:,:), intent(out), allocatable :: result
+
+        real(8), dimension(:), allocatable :: local_u,w
+        real(8), dimension(:,:), allocatable :: x_ref,vertices
+        real(8), dimension(:,:,:), allocatable :: basis_values
+        integer :: numpts,i_dim
+        
+        call getRefLinePts(Th%mesh_type, i_le, vertices)
+        call getGaussQuadAnyLine(vertices, Gauss_type, x_ref, w)
+        call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
+
+        numpts = size(x_ref, 2)
+        allocate(result(Vh%dim,numpts))
+        do i_dim = 1,Vh%dim
+            call getLocalDof(u, Vh, i_elem, i_dim, local_u)
+            result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
+        end do 
+    end subroutine FEfunctionQuadValueLine
 
 
     ! Assemblers
@@ -243,6 +269,56 @@ contains
 
     end subroutine LocalMatrix
 
+    subroutine LocalMatrixFE(i_elem, coe_fun, coe_fun_dim, Th, Vh_trial, Vh_test, i_dim_trial, &
+        deriv_type_trial, i_dim_test, deriv_type_test, u, Vh_u, i_dim_u, deriv_type_u, Gauss_type, localmat)
+            integer, intent(in) :: i_elem, i_dim_trial, deriv_type_trial, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim
+            type(mesh2D), intent(in) :: Th
+            type(fespace), intent(in) :: Vh_trial, Vh_test
+            procedure(func) :: coe_fun
+            real(8), intent(out), dimension(:,:), allocatable :: localmat
+            real(8), intent(in), dimension(:) :: u
+            type(fespace) :: Vh_u
+            integer :: i_dim_u
+            integer :: deriv_type_u
+    
+            ! Gauss quadrature
+            real(8), dimension(:,:), allocatable :: x,x_ref
+            real(8), dimension(:), allocatable :: w,w_ref
+    
+            ! Basis functions
+            real(8), dimension(:,:,:), allocatable :: basis_trial, basis_test
+    
+            ! coefficient function
+            real(8), dimension(:), allocatable :: coe_value,tmp
+
+            ! FE function value
+            real(8), dimension(:,:), allocatable :: fe_value
+    
+            integer :: i_pt
+    
+            call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+            call getGaussRefElement(Gauss_type, x_ref, w_ref)
+            
+            call BasisLocal2D(x_ref, Th, Vh_trial, i_elem, deriv_type_trial, basis_trial)
+            call BasisLocal2D(x_ref, Th, Vh_test, i_elem, deriv_type_test, basis_test)
+
+            call FEfunctionQuadValue(u, Th, Vh_u, i_elem, deriv_type_u, Gauss_type, fe_value)
+            
+            ! coefficient function
+            allocate(coe_value(size(x,2)))
+            do i_pt = 1, size(x, 2)
+                call coe_fun(x(:,i_pt), tmp, DERIV_NONE)
+                coe_value(i_pt) = tmp(coe_fun_dim)
+                
+                basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*coe_value(i_pt)*fe_value(i_dim_u,i_pt)
+                basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*w(i_pt)
+            end do
+    
+            allocate(localmat(Vh_test%N_local_basis, Vh_trial%N_local_basis))
+            localmat = matmul(basis_test(i_dim_test,:,:), transpose(basis_trial(i_dim_trial,:,:)))
+    
+        end subroutine LocalMatrixFE
+
     ! Local Vector Assembler
     subroutine LocalVector(i_elem, coe_fun, coe_fun_dim, Th, Vh_test, i_dim_test, deriv_type_test, Gauss_type, localvec)
         integer, intent(in) :: i_elem, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim
@@ -282,6 +358,55 @@ contains
         localvec = sum(basis_test(i_dim_test,:,:), 2)
 
     end subroutine LocalVector
+
+
+    ! Local Vector Assembler with fe function
+    subroutine LocalVectorFE(i_elem, coe_fun, coe_fun_dim, Th, Vh_test, i_dim_test, deriv_type_test, &
+        u, Vh_u, i_dim_u, deriv_type_u, Gauss_type, localvec)
+        integer, intent(in) :: i_elem, i_dim_test, deriv_type_test, Gauss_type, coe_fun_dim,i_dim_u,deriv_type_u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) ::  Vh_test, Vh_u
+        procedure(func) :: coe_fun
+        real(8), intent(out), dimension(:), allocatable :: localvec
+        real(8), dimension(:), intent(in) :: u
+
+        ! Gauss quadrature
+        real(8), dimension(:,:), allocatable :: x,x_ref
+        real(8), dimension(:), allocatable :: w,w_ref
+
+        ! Basis functions
+        real(8), dimension(:,:,:), allocatable :: basis_test
+
+        ! fe function value
+        real(8), dimension(:,:), allocatable :: fe_value
+
+        ! coefficient function
+        real(8), dimension(:), allocatable :: coe_value,tmp
+
+        integer :: i_pt
+
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        call getGaussRefElement(Gauss_type, x_ref, w_ref)
+        
+        call BasisLocal2D(x_ref, Th, Vh_test, i_elem, deriv_type_test, basis_test)
+
+        call FEfunctionQuadValue(u, Th, Vh_u, i_elem, deriv_type_u, Gauss_type, fe_value)
+        
+        ! coefficient function
+        allocate(coe_value(size(x,2)))
+        do i_pt = 1, size(x, 2)
+            call coe_fun(x(:,i_pt), tmp, DERIV_NONE)
+            coe_value(i_pt) = tmp(coe_fun_dim)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*coe_value(i_pt)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*fe_value(i_dim_u,i_pt)
+            basis_test(:,:,i_pt) = basis_test(:,:,i_pt)*w(i_pt)
+        end do
+
+        ! local vector
+        allocate(localvec(Vh_test%N_local_basis))
+        localvec = sum(basis_test(i_dim_test,:,:), 2)
+
+    end subroutine LocalVectorFE
 
 
     ! Local Vector Assembler (integral on line)

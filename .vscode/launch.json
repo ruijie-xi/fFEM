@@ -5,8 +5,8 @@
             "name": "(gdb) Fortran",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileWorkspaceFolder}/bin/test_poisson",    // <-- Change this
-            "args": ["20","20"],                               // <-- Change this
+            "program": "${fileWorkspaceFolder}/bin/test_magnetic",    // <-- Change this
+            "args": ["10", "10"],                               // <-- Change this
             "stopAtEntry": false,
             "cwd": "${fileWorkspaceFolder}",              // <-- And maybe this
             "environment": [],
