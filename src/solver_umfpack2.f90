@@ -1,9 +1,9 @@
-module solver
+module solver_umfpack2
     use settings
     implicit none
 contains
 
-subroutine SolverSolve(A,b,x)
+subroutine SolverSolveUMFPACK2(A,b,x)
     type(MATRIX_TRIPLET) :: A
     real(8),dimension(:) :: b
     real(8),dimension(:) :: x
@@ -37,9 +37,9 @@ subroutine SolverSolve(A,b,x)
         keep, b, x, w, cntl, icntl, info, rinfo)
     
 
-end subroutine SolverSolve
+end subroutine SolverSolveUMFPACK2
 
 
 
     
-end module solver
+end module solver_umfpack2

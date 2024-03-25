@@ -576,7 +576,7 @@ program test_Magnetic
     use timer
     use fe_utils
     use visualize
-    use solver
+    use solver_umfpack2
     use memory_usage
     use assembler
     use tools
@@ -724,7 +724,7 @@ program test_Magnetic
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         call VectorInit(vec_sol, Eh%N_DOF)
-        call SolverSolve(matTotal, vecTotal, vec_sol)
+        call SolverSolveUMFPACK2(matTotal, vecTotal, vec_sol)
 
         if(allocated(tmp)) deallocate(tmp)
         call CurlOperator(Th, vec_sol, tmp)

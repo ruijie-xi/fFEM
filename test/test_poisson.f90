@@ -53,7 +53,7 @@ program test_possion
     use assembler
     use memory_usage
     use my_module
-    use solver
+    use solver_umfpack2
     use solver_petsc
     
     implicit none
@@ -149,7 +149,7 @@ program test_possion
     ! solve the linear system
     allocate(x(Vh%N_DOF))
     call timer_start()
-    call SolverSolvePETSC(A, b, x)
+    call SolverSolveUMFPACK2(A, b, x)
     call timer_end(t_test)
     write(*,*) "Solve Done. Time taken = ", t_test
 

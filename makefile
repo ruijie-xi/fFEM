@@ -6,6 +6,7 @@ MOD_DIR = mod
 OBJECT_DIR = obj
 BIN_DIR = bin
 LIB_DIR = lib
+TEST_DIR = test
 VPATH  = $(SRC_DIR):$(MOD_DIR):$(BIN_DIR):$(OBJECT_DIR):$(LIB_DIR)
 
 LIBFFEM = libffem.a
@@ -44,7 +45,7 @@ OBJECT_FILES = memory_usage.o \
 		fe_utils.o \
 		visualize.o \
 		assembler.o \
-		solver.o \
+		solver_umfpack2.o \
 		solver_petsc.o
 
 OBJECTS = $(addprefix $(OBJECT_DIR)/, $(OBJECT_FILES))
@@ -54,13 +55,7 @@ OBJECTS = $(addprefix $(OBJECT_DIR)/, $(OBJECT_FILES))
 $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.f90
 	$(CF) -c $(FOPT) $(FINCL) $< -o $@ -J $(MOD_DIR)
 
-$(OBJECT_DIR)/%.o: $(SRC_DIR)/%.F90
-	$(CF) -c $(FOPT) $(FINCL) $< -o $@ -J $(MOD_DIR)
-
-$(OBJECT_DIR)/%.o: $(SRC_DIR)/%.f
-	$(CF) -c $(FOPT) $(FINCL) $< -o $@ -J $(MOD_DIR)
-
-$(OBJECT_DIR)/%.o: $(SRC_DIR)/%.F
+$(OBJECT_DIR)/%.o: $(TEST_DIR)/%.f90
 	$(CF) -c $(FOPT) $(FINCL) $< -o $@ -J $(MOD_DIR)
 
 
@@ -85,4 +80,5 @@ test_quicksort: $(LIBFFEM) $(OBJECT_DIR)/test_quicksort.o
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 clean:
-	@rm -f $(OBJECT_DIR)/*.o $(MOD_DIR)/*.mod $(BIN_DIR)/* lib/*
+	@rm -f $(OBJECT_DIR)/*.o $(MOD_DIR)/*.mod $(BIN_DIR)/* lib/*.a
+	@touch $(BIN_DIR)/.gitkeep
