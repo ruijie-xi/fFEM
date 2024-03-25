@@ -54,6 +54,7 @@ program test_possion
     use memory_usage
     use my_module
     use solver
+    use solver_petsc
     
     implicit none
 
@@ -218,10 +219,6 @@ subroutine one_func(x,f,deriv_type)
         f(1) = 1d0
     end select
 end subroutine one_func
-
-
-
-
 
 subroutine NeumannBdry_func(x,f,deriv_type)
     use settings

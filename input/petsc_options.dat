@@ -1,4 +1,1 @@
--ksp_type cg
--pc_type lu
--ksp_rtol 1e-35
--ksp_max_it 20000
+-ksp_type bcgsl -pc_type sor -pc_sor_its 10 

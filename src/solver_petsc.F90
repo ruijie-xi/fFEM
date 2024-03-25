@@ -8,9 +8,74 @@ module solver_petsc
       use petscmat
       use petscksp
       use petscpc
+      use matvec
     implicit none
     
 contains
+
+    subroutine SolverSolvePETSC(A, b, x)
+        type(MATRIX_TRIPLET) :: A
+        real(8), dimension(:) :: b
+        real(8), dimension(:) :: x
+
+        type(MATRIX_COLUMN) :: A_column
+
+        integer(4) :: ierr
+        Mat :: matA
+        Vec :: vecb, vecx
+        KSP :: ksp
+        PC :: pc
+        PetscScalar, pointer :: xx_v(:)
+
+        call PetscInitialize("input/petsc_options.dat", ierr)
+        call CreateMat(matA, A%N_row, A%N_col, ierr)
+        call CreateVec(vecb, size(b), ierr)
+        call CreateVec(vecx, size(x), ierr)
+        call CreateSolver(ksp, matA, matA, ierr)
+
+        call MatrixTriplet2Column(A, A_column)
+        call MatrixTripletFree(A)
+        call MatrixColumn2Triplet(A_column, A)
+
+        call MatrixTriplet2PETSC(A, matA, ierr)
+        call Vector2PETSC(b, vecb, ierr)
+
+        call Solve(matA, vecb, ksp, pc, vecx, ierr)
+
+        call VecGetArrayF90(vecx, xx_v, ierr)
+
+        x = xx_v
+
+
+    end subroutine  SolverSolvePETSC
+
+    subroutine MatrixTriplet2PETSC(A, matA, ierr)
+        implicit none
+        type(MATRIX_TRIPLET) :: A
+        Mat :: matA
+        integer(4) :: ierr
+
+        integer :: i_nz
+
+        do i_nz = 1, A%N_nz
+            call MatSetValue(matA, A%row_idx(i_nz)-1, A%col_idx(i_nz)-1, A%val(i_nz), INSERT_VALUES, ierr)
+        end do
+    end subroutine MatrixTriplet2PETSC
+
+    subroutine Vector2PETSC(b, vecb, ierr)
+        implicit none
+        real(8), dimension(:) :: b
+        Vec :: vecb
+        integer(4) :: ierr
+
+        PetscScalar, pointer :: b_v(:)
+
+        call VecGetArrayF90(vecb, b_v, ierr)
+        b_v = b
+        call VecRestoreArrayF90(vecb, b_v, ierr)
+    end subroutine Vector2PETSC
+
+
     subroutine CreateVec(vec, size_global, errpetsc)
         Vec :: vec
         integer :: size_global, errpetsc

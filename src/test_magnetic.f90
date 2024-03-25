@@ -715,7 +715,7 @@ program test_Magnetic
         ! form the linear system
         ! matTotal = matM + theta*dt*matM1
         ! vecTotal = vec_B + vec_g - vec_f
-        call MatrixAdd(1d0, matM, theta*dt, matM1, matTotal)
+        call MatrixTripletAdd(1d0, matM, theta*dt, matM1, matTotal)
         call VectorInit(vecTotal, Eh%N_DOF)
         vecTotal = vec_B + vec_g - vec_f
 

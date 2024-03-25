@@ -283,67 +283,7 @@ subroutine QuadMeshOnSector(center,Rlist,M,Nlist,elems,nodes)
 
     end do
 
-
-
-
-
 end subroutine QuadMeshOnSector
-
-
-subroutine FindAllEdges(elems,edges)
-    integer, dimension(:,:), intent(in) :: elems
-    integer, dimension(:,:), intent(out), allocatable :: edges
-    integer, dimension(:,:), allocatable :: edges_tmp
-    integer(8), dimension(:),allocatable :: edge_list
-    integer(8) :: edge_info
-    integer :: i_elem, i_localedge, i_node1, i_node2, i_node, count_edges
-    logical :: edge_exists, orientation
-
-    integer, parameter :: max_num_node = 1000000000
-    integer :: num_elem,num_local_edge
-    
-    num_elem = size(elems,2)
-    num_local_edge = size(elems,1)
-
-    allocate(edge_list(num_elem*num_local_edge))
-    allocate(edges_tmp(2,num_elem*num_local_edge))
-
-    count_edges = 0
-    do i_elem = 1,num_elem
-        do i_localedge = 1,num_local_edge
-            ! Find global indices of nodes that define the edge
-            i_node1 = elems(i_localedge, i_elem)
-            i_node2 = elems(mod(i_localedge,num_local_edge)+1, i_elem)
-
-            ! Sort global indices in ascending order
-            orientation = i_node1 < i_node2
-            if (i_node1 > i_node2) then
-                i_node = i_node1
-                i_node1 = i_node2
-                i_node2 = i_node
-            end if
-            
-            edge_info = i_node1*max_num_node + i_node2
-            
-            ! Check if edge already exists in edges array
-            edge_exists = .false.
-            if (count_edges > 0) then
-                edge_exists = any(edge_list(1:count_edges)==edge_info)
-            end if
-
-            ! If edge does not exist, add it to edges array
-            if (.not.edge_exists) then
-                count_edges = count_edges + 1
-                edge_list(count_edges) = edge_info
-                edges_tmp(:,count_edges) = [i_node1,i_node2]
-            end if
-        end do
-    end do
-
-    allocate(edges(2,count_edges))
-    edges = edges_tmp(:,1:count_edges)
-
-end subroutine FindAllEdges
 
 
 

@@ -11,27 +11,24 @@ VPATH  = $(SRC_DIR):$(MOD_DIR):$(BIN_DIR):$(OBJECT_DIR)
 # PETSC_ARCH = arch-linux-c-debug
 
 CF    = gfortran
-FOPT  = -O0 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
+FOPT  = -O2 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
 FOPT_LINK = -g
 
-FINCL = -I mod
-FLIB  = -L/usr/lib -L./3rdparty/UMFPACK_2.0 -lumfpack_2.0
-
-# FINCL = $(FINCL) -I /usr/include/openmpi  \
-# 	-I /usr/lib/petsc/include \
-# FLIB = $(FLIB) -lmpi -lmpi_mpifh -lpetsc
+FINCL = -I mod -I /usr/include/openmpi  \
+	-I /usr/lib/petsc/include
+FLIB = -L/usr/lib -L./3rdparty/UMFPACK_2.0 -lumfpack_2.0 -lmpi -lmpi_mpifh -lpetsc
 
 # --- obj file list
 
 OBJECT_FILES = memory_usage.o \
+		timer.o \
 		tools.o \
+		writervtk.o \
+		readmeshfile.o \
 		quicksort.o \
 		settings.o \
 		matvec.o \
 		mesh_generator.o \
-		timer.o \
-		writervtk.o \
-		readmeshfile.o \
 		mesh.o\
 		quadrature.o \
 		fespace_P0.o \
@@ -46,7 +43,8 @@ OBJECT_FILES = memory_usage.o \
 		fe_utils.o \
 		visualize.o \
 		assembler.o \
-		solver.o
+		solver.o \
+		solver_petsc.o
 
 OBJECTS = $(addprefix $(OBJECT_DIR)/, $(OBJECT_FILES))
 
@@ -70,6 +68,7 @@ $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.F
 
 ffem: ${OBJECTS}
 	ar rcs lib/libffem.a $^
+	@rm -f $(OBJECT_DIR)/*.o
 
 test_interpolation: ffem $(OBJECT_DIR)/test_interpolation.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}

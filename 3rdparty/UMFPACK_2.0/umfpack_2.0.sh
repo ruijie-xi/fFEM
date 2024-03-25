@@ -6,7 +6,7 @@ cd src
 #
 for FILE in `ls -1 *.f`;
 do
-  gfortran -c $FILE -g -fdefault-real-8
+  gfortran -c $FILE -g -fdefault-real-8 -O2
   if [ $? -ne 0 ]; then
     echo "Errors compiling " $FILE
     exit

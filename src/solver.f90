@@ -1,7 +1,6 @@
 module solver
     use settings
     implicit none
-    
 contains
 
 subroutine SolverSolve(A,b,x)
@@ -38,6 +37,9 @@ subroutine SolverSolve(A,b,x)
         keep, b, x, w, cntl, icntl, info, rinfo)
     
 
-end subroutine
+end subroutine SolverSolve
+
+
+
     
 end module solver
