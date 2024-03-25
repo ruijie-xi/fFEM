@@ -5,7 +5,10 @@ SRC_DIR = src
 MOD_DIR = mod
 OBJECT_DIR = obj
 BIN_DIR = bin
-VPATH  = $(SRC_DIR):$(MOD_DIR):$(BIN_DIR):$(OBJECT_DIR)
+LIB_DIR = lib
+VPATH  = $(SRC_DIR):$(MOD_DIR):$(BIN_DIR):$(OBJECT_DIR):$(LIB_DIR)
+
+LIBFFEM = libffem.a
 
 # PETSC_DIR = /home/eureka/petsc
 # PETSC_ARCH = arch-linux-c-debug
@@ -14,12 +17,10 @@ CF    = gfortran
 FOPT  = -O2 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
 FOPT_LINK = -g
 
-FINCL = -I mod -I /usr/include/openmpi  \
-	-I /usr/lib/petsc/include
-FLIB = -L/usr/lib -L./3rdparty/UMFPACK_2.0 -lumfpack_2.0 -lmpi -lmpi_mpifh -lpetsc
+FINCL = -I mod -I /usr/lib/petsc/include
+FLIB = -L./3rdparty/UMFPACK_2.0 -lumfpack_2.0 -lmpi -lmpi_mpifh -lpetsc
 
-# --- obj file list
-
+# --- obj file list ----------------------------------------
 OBJECT_FILES = memory_usage.o \
 		timer.o \
 		tools.o \
@@ -65,24 +66,22 @@ $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.F
 
 # --- targets --------------------------------------------------------
 
+$(LIBFFEM): ${OBJECTS}
+	ar rcs $(LIB_DIR)/$@ $^
 
-ffem: ${OBJECTS}
-	ar rcs lib/libffem.a $^
-	@rm -f $(OBJECT_DIR)/*.o
-
-test_interpolation: ffem $(OBJECT_DIR)/test_interpolation.o  
+test_interpolation: $(LIBFFEM) $(OBJECT_DIR)/test_interpolation.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
-test_poisson: ffem $(OBJECT_DIR)/test_poisson.o  
+test_poisson: $(LIBFFEM) $(OBJECT_DIR)/test_poisson.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
-test_magnetic: ffem $(OBJECT_DIR)/test_magnetic.o  
+test_magnetic: $(LIBFFEM) $(OBJECT_DIR)/test_magnetic.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
-test_matvec: ffem $(OBJECT_DIR)/test_matvec.o  
+test_matvec: $(LIBFFEM) $(OBJECT_DIR)/test_matvec.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
-test_quicksort: ffem $(OBJECT_DIR)/test_quicksort.o  
+test_quicksort: $(LIBFFEM) $(OBJECT_DIR)/test_quicksort.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 clean:

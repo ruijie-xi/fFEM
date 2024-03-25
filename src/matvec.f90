@@ -137,7 +137,7 @@ contains
         integer :: N_nz
 
         integer :: icntl(20),keep(20),info(40)
-        real(8) :: cntl(10),rinfo(20)
+        real(8) :: cntl(10)
 
         integer :: i, i_col,nnz_col
         integer,dimension(:),allocatable :: index
@@ -300,6 +300,18 @@ contains
 
         allocate(vec(n))
         vec = 0d0
+
+    end subroutine
+
+    subroutine VectorPrint(vec)
+        implicit none
+        real(8), dimension(:), intent(in) :: vec
+
+        integer :: i
+
+        do i = 1, size(vec)
+            print *, i, vec(i)
+        end do
 
     end subroutine
 

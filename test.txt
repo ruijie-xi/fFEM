@@ -1,0 +1,16 @@
+ Solving the matrix system  
+ Convergence in         176  iterations. 
+ MeshInit: Triangle mesh detected.
+ Orientation Checked.            0 elements fliped.
+ ums2fa:        29800  duplicate entries summed.
+ Mesh generation done. Time taken =    3.90625000E-03
+ Initialize Done. Time taken =    0.00000000    
+ Assemble Done. Time taken =   0.157226562    
+ Memory usage =        71404
+ Dirichlet Done. Time taken =    0.00000000    
+ Warning: Matrix is not fully filled, and will be converted to column format anyway.
+ ums2fa:      1958598  duplicate entries summed.
+ Solve Done. Time taken =   0.607421875    
+ Solution written to output/u.vtk
+ L2 error =    3.2493663222829750E-004
+ H1 error =    3.9266199328576463E-003

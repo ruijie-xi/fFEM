@@ -1,9 +1,9 @@
 module solver_petsc
-#include <petsc/finclude/petscsysdef.h>
-#include <petsc/finclude/petscvecdef.h>
-#include <petsc/finclude/petscmatdef.h>
-#include <petsc/finclude/petsckspdef.h>
-#include <petsc/finclude/petscpcdef.h>
+#include <petsc/finclude/petscsys.h>
+#include <petsc/finclude/petscvec.h>
+#include <petsc/finclude/petscmat.h>
+#include <petsc/finclude/petscksp.h>
+#include <petsc/finclude/petscpc.h>
       use petscvec
       use petscmat
       use petscksp
@@ -19,6 +19,8 @@ contains
         real(8), dimension(:) :: x
 
         type(MATRIX_COLUMN) :: A_column
+
+        integer :: i
 
         integer(4) :: ierr
         Mat :: matA
@@ -45,6 +47,8 @@ contains
         call VecGetArrayF90(vecx, xx_v, ierr)
 
         x = xx_v
+
+        call PetscFinalize(ierr)
 
 
     end subroutine  SolverSolvePETSC

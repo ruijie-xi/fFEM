@@ -149,9 +149,11 @@ program test_possion
     ! solve the linear system
     allocate(x(Vh%N_DOF))
     call timer_start()
-    call SolverSolve(A, b, x)
+    call SolverSolvePETSC(A, b, x)
     call timer_end(t_test)
     write(*,*) "Solve Done. Time taken = ", t_test
+
+    ! call VectorPrint(x)
     
     ! write solution to file
     call PlotFunction(x, Th, Vh, "output/u.vtk")

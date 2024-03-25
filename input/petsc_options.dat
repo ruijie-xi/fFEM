@@ -1,1 +1,3 @@
--ksp_type bcgsl -pc_type sor -pc_sor_its 10 
+-ksp_type cg
+-pc_type ilu
+-ksp_rtol 1.0e-10

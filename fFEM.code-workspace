@@ -5,6 +5,9 @@
 		}
 	],
 	"settings": {
-		"fortran.linter.modOutput": "${workspaceFolder}/mod"
+		"fortran.linter.modOutput": "${workspaceFolder}/mod",
+		"fortran.linter.includePaths": [
+			"/usr/lib/petsc/include"
+		]
 	}
 }
