@@ -68,8 +68,8 @@ program test_possion
     type(fespace) :: Vh
     integer, parameter :: mesh_type = MESH_TRIANGLE
     integer, parameter :: DOF_type = DOF_P2
-    integer, parameter :: Gauss_type = TrianglePt9
-    integer, parameter :: Gauss_type_bdry = LinePt3
+    integer, parameter :: Gauss_type = TrianglePt4
+    integer, parameter :: Gauss_type_bdry = LinePt2
     
     ! functions
     real(8), allocatable, dimension(:) :: u
@@ -111,6 +111,7 @@ program test_possion
     call fespaceInit(Vh, Th, DOF_type, 2)
     call timer_end(t_test)
     write(*,*) "Initialize Done. Time taken = ", t_test
+    write(*,*) "Number of DOF = ", Vh%N_DOF
 
     ! assemble rhs and matrix
     call MatrixTripletInit(A, Vh%N_DOF, Vh%N_DOF, 5*Th%N_elem*Vh%N_local_basis*Vh%N_local_basis)
@@ -149,11 +150,9 @@ program test_possion
     ! solve the linear system
     allocate(x(Vh%N_DOF))
     call timer_start()
-    call SolverSolveUMFPACK2(A, b, x)
+    call SolverSolvePETSC(A, b, x)
     call timer_end(t_test)
     write(*,*) "Solve Done. Time taken = ", t_test
-
-    ! call VectorPrint(x)
     
     ! write solution to file
     call PlotFunction(x, Th, Vh, "output/u.vtk")

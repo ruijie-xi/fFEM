@@ -1,3 +1,4 @@
--ksp_type cg
--pc_type ilu
--ksp_rtol 1.0e-10
+-ksp_type preonly
+-pc_type lu
+-pc_factor_mat_solver_type mumps
+-ksp_rtol 1.0e-15

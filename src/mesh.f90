@@ -590,5 +590,74 @@ contains
 
     end subroutine getEdgeLength
 
+    ! find the element containing a point
+    subroutine GetPointElement(Th, point, i_elem)
+        type(mesh2D), intent(in) :: Th
+        real(8), dimension(:), intent(in) :: point
+        integer, intent(out) :: i_elem
+
+        integer :: i_elem_tmp
+        real(8) :: x1,x2,x3,x4, y1,y2,y3,y4
+        real(8) :: x,y
+        real(8) :: cross1, cross2, cross3, cross4
+
+        real(8) :: EPS = 1d-10
+
+        x = point(1)
+        y = point(2)
+
+        i_elem = 0
+        do i_elem_tmp = 1,Th%N_elem
+            if (Th%mesh_type==MESH_TRIANGLE) then
+                x1 = Th%NodeCoord(1,Th%ElemNodeConn(1,i_elem_tmp))
+                x2 = Th%NodeCoord(1,Th%ElemNodeConn(2,i_elem_tmp))
+                x3 = Th%NodeCoord(1,Th%ElemNodeConn(3,i_elem_tmp))
+                y1 = Th%NodeCoord(2,Th%ElemNodeConn(1,i_elem_tmp))
+                y2 = Th%NodeCoord(2,Th%ElemNodeConn(2,i_elem_tmp))
+                y3 = Th%NodeCoord(2,Th%ElemNodeConn(3,i_elem_tmp))
+
+                ! (x2-x1,y2-y1) x (x-x1,y-y1)
+                cross1 = (x2-x1)*(y-y1) - (x-x1)*(y2-y1)
+                ! (x3-x2,y3-y2) x (x-x2,y-y2)
+                cross2 = (x3-x2)*(y-y2) - (x-x2)*(y3-y2)
+                ! (x1-x3,y1-y3) x (x-x3,y-y3)
+                cross3 = (x1-x3)*(y-y3) - (x-x3)*(y1-y3)
+
+                if (cross1>-EPS .and. cross2>-EPS .and. cross3>-EPS) then
+                    i_elem = i_elem_tmp
+                    exit
+                end if
+            elseif (Th%mesh_type==MESH_QUAD) then
+                x1 = Th%NodeCoord(1,Th%ElemNodeConn(1,i_elem_tmp))
+                x2 = Th%NodeCoord(1,Th%ElemNodeConn(2,i_elem_tmp))
+                x3 = Th%NodeCoord(1,Th%ElemNodeConn(3,i_elem_tmp))
+                x4 = Th%NodeCoord(1,Th%ElemNodeConn(4,i_elem_tmp))
+                y1 = Th%NodeCoord(2,Th%ElemNodeConn(1,i_elem_tmp))
+                y2 = Th%NodeCoord(2,Th%ElemNodeConn(2,i_elem_tmp))
+                y3 = Th%NodeCoord(2,Th%ElemNodeConn(3,i_elem_tmp))
+                y4 = Th%NodeCoord(2,Th%ElemNodeConn(4,i_elem_tmp))
+
+                ! (x2-x1,y2-y1) x (x-x1,y-y1)
+                cross1 = (x2-x1)*(y-y1) - (x-x1)*(y2-y1)
+                ! (x3-x2,y3-y2) x (x-x2,y-y2)
+                cross2 = (x3-x2)*(y-y2) - (x-x2)*(y3-y2)
+                ! (x4-x3,y4-y3) x (x-x3,y-y3)
+                cross3 = (x4-x3)*(y-y3) - (x-x3)*(y4-y3)
+                ! (x1-x4,y1-y4) x (x-x4,y-y4)
+                cross4 = (x1-x4)*(y-y4) - (x-x4)*(y1-y4)
+
+                if (cross1>-EPS .and. cross2>-EPS .and. cross3>-EPS .and. cross4>-EPS) then
+                    i_elem = i_elem_tmp
+                    exit
+                end if
+            else
+                write(*,*) "GetPointElement: mesh_type not supported."
+                stop
+            end if
+
+        end do
+
+    end subroutine GetPointElement
+
     
 end module mesh

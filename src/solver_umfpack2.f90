@@ -3,6 +3,8 @@ module solver_umfpack2
     implicit none
 contains
 
+
+! TODO: dynamically allocate the size of value and index
 subroutine SolverSolveUMFPACK2(A,b,x)
     type(MATRIX_TRIPLET) :: A
     real(8),dimension(:) :: b
@@ -19,11 +21,9 @@ subroutine SolverSolveUMFPACK2(A,b,x)
 
     call ums2in(icntl, cntl, keep)
 
-    lvalue = 5*A%actual_nnz
-    lindex = 5*A%actual_nnz
+    lvalue = 100*A%actual_nnz
+    lindex = 100*A%actual_nnz
     allocate(index(lindex),value(lvalue))
-
-    print *, "test  "
 
     index(1:A%actual_nnz) = A%row_idx(1:A%actual_nnz)
     index(A%actual_nnz+1:2*A%actual_nnz) = A%col_idx(1:A%actual_nnz)

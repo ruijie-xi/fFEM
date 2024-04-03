@@ -28,13 +28,4 @@ contains
         
     end subroutine linspace
 
-    subroutine ViewArray(array)
-        real(8),dimension(:),intent(in) :: array
-        integer :: i
-
-        do i = 1,size(array)
-            write(*,*) i,array(i)
-        end do
-    end subroutine ViewArray
-
 end module tools

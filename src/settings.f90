@@ -98,6 +98,17 @@ module settings
         real(8), dimension(:), allocatable :: val ! non-zero elements, N_nz
     end type MATRIX_COLUMN
 
+    ! row-oriented form of sparse matrix
+    ! row_ptr(N_row+1): the indices of nonzero elements in the ith row is row_ptr(i)->row_ptr(i+1)-1
+    ! col_idx(N_nz): the column indices of each nonzero elements
+    ! val(N_nz): value of nonzero elements
+    type :: MATRIX_ROW
+        integer :: N_row, N_col, N_nz
+        integer, dimension(:), allocatable :: row_ptr ! row pointer, N_row+1
+        integer, dimension(:), allocatable :: col_idx ! column index of non-zero elements, N_nz
+        real(8), dimension(:), allocatable :: val ! non-zero elements, N_nz
+    end type MATRIX_ROW
+
     ! some useful constants
     real(8), parameter :: m_pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
     

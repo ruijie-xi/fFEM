@@ -111,6 +111,7 @@ subroutine UpdateMeshAndSolution(u,dt,Th,B,Bhat)
 
 end subroutine UpdateMeshAndSolution
 
+
     
 end module solver_procs
 
@@ -570,14 +571,13 @@ program test_Magnetic
     use problem_moving_exact
     use solver_procs
     use settings
-    use mesh, only: MeshInit, PrintMesh, AddBdryMarker
+    use mesh, only: MeshInit, AddBdryMarker
     use fe, only: fespaceInit, Interpolate
     use mesh_generator, only:QuadMeshOnSector
     use timer
     use fe_utils
     use visualize
     use solver_umfpack2
-    use memory_usage
     use assembler
     use tools
     use matvec
@@ -601,7 +601,7 @@ program test_Magnetic
     integer, parameter :: DOF_type_U = DOF_Q1
     
     ! parameters of Gauss quadrature
-    integer, parameter :: Gauss_type = QuadPt9
+    integer, parameter :: Gauss_type = QuadPt4
     integer, parameter :: Gauss_type_bdry = LinePt3
 
     ! theta-scheme
@@ -616,9 +616,6 @@ program test_Magnetic
 
     ! timer
     real :: t_test
-
-    ! memory
-    integer :: RSS
 
     ! matrices and vectors
     integer, dimension(:,:), allocatable :: assemble_info
@@ -745,8 +742,6 @@ program test_Magnetic
         call MatrixTripletFree(matTotal)
         deallocate(vec_B, vec_g, vec_f, vecTotal, vec_sol)
 
-        call system_mem_usage(RSS)
-        write(*,*) "Memory usage = ", RSS 
     end do
 
     !!!!!!!!!!!!!!!!!!!
@@ -760,7 +755,7 @@ program test_Magnetic
     !! save result !!
     !!!!!!!!!!!!!!!!!
 
-    call PlotFunction(B,Th, Bh, "output/B.vtk")
+    call PlotFunction(B, Th, Bh, "output/B.vtk")
 
 
 end program test_Magnetic

@@ -64,10 +64,16 @@ $(OBJECT_DIR)/%.o: $(TEST_DIR)/%.f90
 $(LIBFFEM): ${OBJECTS}
 	ar rcs $(LIB_DIR)/$@ $^
 
+test_mesh: $(LIBFFEM) $(OBJECT_DIR)/test_mesh.o  
+	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
+
 test_interpolation: $(LIBFFEM) $(OBJECT_DIR)/test_interpolation.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 test_poisson: $(LIBFFEM) $(OBJECT_DIR)/test_poisson.o  
+	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
+
+test_stokes: $(LIBFFEM) $(OBJECT_DIR)/test_stokes.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 test_magnetic: $(LIBFFEM) $(OBJECT_DIR)/test_magnetic.o  
