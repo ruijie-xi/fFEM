@@ -14,11 +14,11 @@ LIBFFEM = libffem.a
 # PETSC_DIR = /home/eureka/petsc
 # PETSC_ARCH = arch-linux-c-debug
 
-CF    = gfortran
+CF    = mpif90
 FOPT  = -O2 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
 FOPT_LINK = -g
 
-FINCL = -I mod -I /usr/lib/petsc/include
+FINCL = -I mod -I /usr/lib/petsc/include -I /usr/lib/x86_64-linux-gnu/openmpi/include
 FLIB = -L./3rdparty/UMFPACK_2.0 -lumfpack_2.0 -lmpi -lmpi_mpifh -lpetsc
 
 # --- obj file list ----------------------------------------
@@ -83,6 +83,12 @@ test_matvec: $(LIBFFEM) $(OBJECT_DIR)/test_matvec.o
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 test_quicksort: $(LIBFFEM) $(OBJECT_DIR)/test_quicksort.o  
+	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
+
+test_mpi: $(LIBFFEM) $(OBJECT_DIR)/test_mpi.o  
+	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
+
+test_poisson_parallel: $(LIBFFEM) $(OBJECT_DIR)/test_poisson_parallel.o  
 	${CF} -o $(BIN_DIR)/$@ $(word 2,$^) -L./lib -lffem ${FLIB} ${FOPT_LINK}
 
 clean:
