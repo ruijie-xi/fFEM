@@ -28,11 +28,11 @@ contains
             stop
         end if
 
-        ! check the orientation of the elements (triangle only)
-        if (N_le .eq. 3) then
+        ! check the orientation of the elements
+        if (N_le.eq.3) then
             call CheckOrientation(Elems,Nodes)
         else
-            write(*,*) "Warning: Orientation check only support triangle mesh. not checked."
+            write(*,*) "Check orientation : Only support triangle mesh."
         end if
 
         ! initialze Th
@@ -390,29 +390,50 @@ contains
         integer, dimension(:,:), intent(inout) :: ElemNodeConn
         real(8), dimension(:,:), intent(in) :: NodeCoord
         real(8) :: area
-        integer :: i_elem,count,N_elem,tmp
-        real(8) :: x1,x2,x3,y1,y2,y3
+        integer :: i_elem,count,N_elem,tmp,i_le
+        real(8),dimension(:),allocatable :: x,y
+        real(8) :: x_mid,y_mid
+        real(8) :: x1,x2,y1,y2
+        integer :: N_le
+        logical :: isoriented
 
-        if (size(ElemNodeConn,1) .ne. 3) then
+        N_le = size(ElemNodeConn,1)
+
+        if (N_le.ne.3) then
             write(*,*) "CheckOrientation: Only support triangle mesh."
             stop
         end if
 
+        allocate(x(N_le),y(N_le))
+
         count = 0
         N_elem = size(ElemNodeConn,2)
         do i_elem = 1,N_elem
-            x1 = NodeCoord(1, ElemNodeConn(1, i_elem))
-            x2 = NodeCoord(1, ElemNodeConn(2, i_elem))
-            x3 = NodeCoord(1, ElemNodeConn(3, i_elem))
-            y1 = NodeCoord(2, ElemNodeConn(1, i_elem))
-            y2 = NodeCoord(2, ElemNodeConn(2, i_elem))
-            y3 = NodeCoord(2, ElemNodeConn(3, i_elem))
 
-            area = (x2-x1)*(y3-y1) - (x3-x1)*(y2-y1)
-            if (area < 0) then
-                tmp = ElemNodeConn(1,i_elem)
-                ElemNodeConn(1,i_elem) = ElemNodeConn(2,i_elem)
-                ElemNodeConn(2,i_elem) = tmp
+            isoriented = .true.
+            do i_le = 1,N_le
+                x(i_le) = NodeCoord(1, ElemNodeConn(i_le, i_elem))
+                y(i_le) = NodeCoord(2, ElemNodeConn(i_le, i_elem))
+            end do
+
+            x_mid = sum(x)/N_le
+            y_mid = sum(y)/N_le
+
+            do i_le = 1,N_le
+                x1 = x(mod(i_le,N_le)+1) - x(i_le)
+                x2 = x_mid - x(i_le)
+                y1 = y(mod(i_le,N_le)+1) - y(i_le)
+                y2 = y_mid - y(i_le)
+                area = x1*y2 - x2*y1
+                if (area < 0) then
+                    isoriented = .false.
+                    tmp = ElemNodeConn(i_le,i_elem)
+                    ElemNodeConn(i_le,i_elem) = ElemNodeConn(mod(i_le,N_le)+1,i_elem)
+                    ElemNodeConn(mod(i_le,N_le)+1,i_elem) = tmp
+                end if
+            end do
+
+            if (.not. isoriented) then
                 count = count + 1
             end if
         end do

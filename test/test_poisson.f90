@@ -66,9 +66,9 @@ program test_possion
 
     ! fe space
     type(fespace) :: Vh
-    integer, parameter :: mesh_type = MESH_TRIANGLE
-    integer, parameter :: DOF_type = DOF_P2
-    integer, parameter :: Gauss_type = TrianglePt4
+    integer, parameter :: mesh_type = MESH_QUAD
+    integer, parameter :: DOF_type = DOF_Q1
+    integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: Gauss_type_bdry = LinePt2
     
     ! functions

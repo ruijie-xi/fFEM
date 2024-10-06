@@ -18,6 +18,7 @@ module settings
     ! integer, parameter :: DOF_Q2 = 102
     integer, parameter :: DOF_QuadNedelec1 = 111
     integer, parameter :: DOF_QuadRT1 = 121
+    integer, parameter :: DOF_QuadRT2 = 122
 
     ! Derivative type
     integer, parameter :: DERIV_NONE = 0
