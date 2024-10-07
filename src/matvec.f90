@@ -521,6 +521,24 @@ contains
         end where
 
     end subroutine MatrixColumnClearRow
+    
+    function MatrixColumnTranspose(A) result(A_t)
+        type(MATRIX_COLUMN), intent(in) :: A
+        type(MATRIX_COLUMN) :: A_t
+        
+        type(MATRIX_TRIPLET) :: A_triplet
+        integer, dimension(:), allocatable :: tmp_row_idx
+                
+        call MatrixColumn2Triplet(A, A_triplet)
+        
+        allocate(tmp_row_idx(A_triplet%N_nz))
+        tmp_row_idx = A_triplet%row_idx
+        A_triplet%row_idx = A_triplet%col_idx
+        A_triplet%col_idx = tmp_row_idx
+        
+        call MatrixTriplet2Column(A_triplet, A_t)
+        
+    end function
 
     subroutine MatrixColumnFree(A)
         implicit none
@@ -575,6 +593,24 @@ contains
         real(8), dimension(:), allocatable, intent(inout) :: vec
 
         deallocate(vec)
+
+    end subroutine
+    
+    ! y += alpha*A*x
+    subroutine AddMultMV(alpha, A, x, y) 
+        implicit none
+        real(8), intent(in) :: alpha
+        type(MATRIX_COLUMN), intent(in) :: A
+        real(8), dimension(:), intent(in) :: x
+        real(8), dimension(:), intent(inout) :: y
+
+        integer :: i, j
+
+        do j = 1, A%N_col
+            do i = A%col_ptr(j), A%col_ptr(j+1)-1
+                y(A%row_idx(i)) = y(A%row_idx(i)) + alpha*A%val(i)*x(j)
+            end do
+        end do
 
     end subroutine
 
