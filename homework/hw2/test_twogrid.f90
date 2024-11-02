@@ -7,20 +7,6 @@ module my_module
     
 contains
 
-subroutine x0_func(x,f,deriv_type)
-    real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable , intent(out):: f
-    integer, intent(in) :: deriv_type
-    real(8), parameter :: pi = 3.14159265358979323846264d0
-
-    if (.not. allocated(f)) allocate(f(1))
-
-    select case(deriv_type)
-    case(DERIV_NONE)
-        f(1) = sin(coeff*pi*x(1))*sin(coeff*pi*x(2))
-    end select
-end subroutine x0_func
-
 subroutine one_func(x,f,deriv_type)
     use settings
     implicit none
@@ -52,21 +38,6 @@ subroutine zero_func(x,f,deriv_type)
     end select
 end subroutine zero_func
 
-subroutine test_func(x,f,deriv_type)
-    use settings
-    implicit none
-    real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable, intent(out) :: f
-    integer, intent(in) :: deriv_type
-
-    if (.not. allocated(f)) allocate(f(1))
-
-    select case(deriv_type)
-    case(DERIV_NONE)
-        f(1) = 1d0 + x(1) + x(2)
-    end select
-end subroutine test_func
-
 subroutine rhs_func(x,f,deriv_type)
     use settings
     implicit none
@@ -79,7 +50,7 @@ subroutine rhs_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = 5d0*sin(x(1))*sin(2d0*x(2))
+        f(1) = ((2d0*pi)**2+(2d0*pi)**2)*sin(2d0*pi*x(1))*sin(2d0*pi*x(2))
     end select
 end subroutine rhs_func
 
@@ -95,11 +66,11 @@ subroutine u_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = sin(x(1))*sin(2d0*x(2))
+        f(1) = sin(2d0*pi*x(1))*sin(2d0*pi*x(2))
     case(DERIV_DX)
-        f(1) = cos(x(1))*sin(2d0*x(2))
+        f(1) = 2d0*pi*cos(2d0*pi*x(1))*sin(2d0*pi*x(2))
     case(DERIV_DY)
-        f(1) = 2d0*sin(x(1))*cos(2d0*x(2))
+        f(1) = 2d0*pi*sin(2d0*pi*x(1))*cos(2d0*pi*x(2))
     end select
 end subroutine u_func
 
@@ -177,6 +148,48 @@ subroutine DirichletBC(A, x, b, Th, Vh, bndy_func)
 end subroutine DirichletBC
 
 end module my_module
+    
+
+module Operator
+    use settings
+    use module_prolongation
+    implicit none
+    
+    private
+    
+    public :: OpR, OpP, SetSpace
+    
+    type(MESH2D), pointer :: Th_fine, Th_coarse
+    type(FESPACE), pointer :: Vh_fine, Vh_coarse
+    
+contains
+
+subroutine SetSpace(Th_fine_, Vh_fine_, Th_coarse_, Vh_coarse_)
+    type(MESH2D), target :: Th_fine_, Th_coarse_
+    type(FESPACE), target :: Vh_fine_, Vh_coarse_
+    
+    Th_fine => Th_fine_
+    Th_coarse => Th_coarse_
+    Vh_fine => Vh_fine_
+    Vh_coarse => Vh_coarse_
+    
+end subroutine
+
+subroutine OpR(x, y)
+    real(8), intent(in), dimension(:) :: x
+    real(8), intent(out), dimension(:), allocatable :: y
+    
+    call OperatorTransfer(x, Th_fine, Vh_fine, Th_coarse, Vh_coarse, y)
+end subroutine
+
+subroutine OpP(x, y)
+    real(8), intent(in), dimension(:) :: x
+    real(8), intent(out), dimension(:), allocatable :: y
+    
+    call OperatorTransfer(x, Th_coarse, Vh_coarse, Th_fine, Vh_fine, y)
+end subroutine
+
+end module
 
 program test_twogrid
     use settings
@@ -191,6 +204,8 @@ program test_twogrid
     use solver_umfpack2
     use module_smoother
     use module_prolongation
+    use Operator
+    use module_twogrid
     
     implicit none
 
@@ -285,45 +300,22 @@ program test_twogrid
     ! solve
     solve: block
     
-    type(MATRIX_COLUMN) :: A_col
-    real(8) :: H1error
-    
-    real(8), dimension(:), allocatable :: r_fine, r_coarse, e_coarse, e_fine
+    type(MATRIX_COLUMN) :: A_col, Ac_col
+    real(8) :: H1error, L2error 
     
     call MatrixTriplet2Column(A, A_col)
-    call GS_smooth(A_col, b, x_fine, 1d-8, 10, 6)
+    call MatrixTriplet2Column(Ac, Ac_col)
     
-    ! restrict to coarse grid
-    allocate(r_fine(Vh_fine%N_DOF))
-    r_fine = b 
-    call AddMultMV(-1d0, A_col, x_fine, r_fine)
+    call SetSpace(Th_fine, Vh_fine, Th_coarse, Vh_coarse)
     
-    r_coarse = OperatorTransfer(r_fine, Th_fine, Vh_fine, Th_coarse, Vh_coarse)
+    call solver_twogrid(A_col, Ac_col, OpR, OpP, b, x_fine, 1d-8, 100, SMOOTHER_JACOBI, 10, 10, .true.)
     
-    ! solve on coarse grid
-    allocate(e_coarse(Vh_coarse%N_DOF))
-    call SolverSolveUMFPACK2(Ac, r_coarse, e_coarse)
-    
-    ! prolongate to fine grid
-    e_fine = OperatorTransfer(e_coarse, Th_coarse, Vh_coarse, Th_fine, Vh_fine)
-    
-    x_fine = x_fine + e_fine
-    
-    call GS_smooth(A_col, b, x_fine, 1d-8, 10, 6)
-    
-    r_fine = b
-    call AddMultMV(-1d0, A_col, x_fine, r_fine)
-    write(*,*) "Residual = ", maxval(abs(r_fine))
-        
     call ComputeError(u_func, x_fine, Th_fine, Vh_fine, NORM_H1, Gauss_type, H1error)
+    call ComputeError(u_func, x_fine, Th_fine, Vh_fine, NORM_L2, Gauss_type, L2error)
     write(*,*) "H1 error = ", H1error
+    write(*,*) "L2 error = ", L2error
     
     end block solve
-    
-    
-    
-    
-    
 
 end program test_twogrid
 

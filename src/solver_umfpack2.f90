@@ -3,12 +3,12 @@ module solver_umfpack2
     implicit none
 contains
 
-
-! TODO: dynamically allocate the size of value and index
 subroutine SolverSolveUMFPACK2(A,b,x)
-    type(MATRIX_TRIPLET) :: A
+    type(MATRIX_COLUMN) :: A
     real(8),dimension(:) :: b
     real(8),dimension(:) :: x
+    
+    integer :: i_nz, i_col
 
     real(8), dimension(:), allocatable :: w
 
@@ -21,15 +21,20 @@ subroutine SolverSolveUMFPACK2(A,b,x)
 
     call ums2in(icntl, cntl, keep)
 
-    lvalue = 100*A%actual_nnz
-    lindex = 100*A%actual_nnz
+    lvalue = 10*A%N_nz
+    lindex = 10*A%N_nz
+    
     allocate(index(lindex),value(lvalue))
+        
+    do i_col = 1, A%N_col
+        do i_nz = A%col_ptr(i_col), A%col_ptr(i_col+1)-1
+            index(i_nz) = A%row_idx(i_nz)
+            index(A%N_nz+i_nz) = i_col
+            value(i_nz) = A%val(i_nz)
+        end do
+    end do
 
-    index(1:A%actual_nnz) = A%row_idx(1:A%actual_nnz)
-    index(A%actual_nnz+1:2*A%actual_nnz) = A%col_idx(1:A%actual_nnz)
-    value(1:A%actual_nnz) = A%val(1:A%actual_nnz)
-
-    call ums2fa(A%N_row, A%actual_nnz, 0, .false., lvalue, lindex, value, index, &
+    call ums2fa(A%N_row, A%N_nz, 0, .false., lvalue, lindex, value, index, &
         keep, cntl, icntl, info, rinfo)
     
     allocate(w(4*A%N_row))

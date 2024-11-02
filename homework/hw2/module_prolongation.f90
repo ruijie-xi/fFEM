@@ -131,7 +131,7 @@ end function
 
 ! Given grid function x, interpolate it to the target grid function x_target
 ! only works for linear elements
-function OperatorTransfer(x, Th, Vh, Th_target, Vh_target) result(x_target)
+subroutine OperatorTransfer(x, Th, Vh, Th_target, Vh_target, x_target)
     use tools, only: assert
     use fe_utils, only: FEfunctionGetValue
     type(MESH2D), intent(in) :: Th
@@ -139,7 +139,7 @@ function OperatorTransfer(x, Th, Vh, Th_target, Vh_target) result(x_target)
     type(MESH2D), intent(in) :: Th_target
     type(FESPACE), intent(in) :: Vh_target
     real(8), dimension(:), intent(in) :: x
-    real(8), dimension(:), allocatable :: x_target
+    real(8), dimension(:), intent(out), allocatable :: x_target
     
     integer :: i_elem, i_node_tg
     real(8), dimension(2) :: refpt
@@ -167,6 +167,6 @@ function OperatorTransfer(x, Th, Vh, Th_target, Vh_target) result(x_target)
         
     end do
     
-end function
+end subroutine OperatorTransfer
 
 end module module_prolongation

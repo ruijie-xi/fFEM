@@ -14,7 +14,7 @@ default: lib test_twogrid
 lib: 
 	cd ${FFEMDIR} && make && cd -
 
-test_twogrid: module_smoother.o test_twogrid.o module_prolongation.o
+test_twogrid: module_smoother.o test_twogrid.o module_prolongation.o module_twogrid.o 
 	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
 
 clean:
