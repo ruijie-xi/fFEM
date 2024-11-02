@@ -59,15 +59,15 @@ contains
         u = 0.d0
         
         do i_dof = 1, Vh%N_DOF
-            call ComputeDof(u(i_dof), fun, Th, Vh, i_dof)
+            u(i_dof) = ComputeDof(fun, Th, Vh, i_dof)
         end do
     end subroutine Interpolate
 
-    subroutine ComputeDof(result,fun,Th,Vh,i_dof)
+    function ComputeDof(fun,Th,Vh,i_dof) result(result)
         type(mesh2D) :: Th
         type(fespace) :: Vh
         procedure(func) :: fun
-        real(8), intent(out) :: result
+        real(8) :: result
         integer,intent(in) :: i_dof
 
         select case(Vh%basis_type)
@@ -91,7 +91,7 @@ contains
             print *, "Error: Unknown basis type"
             stop
         end select
-    end subroutine ComputeDof
+    end function ComputeDof
 
     subroutine getLocalDofIndex(Vh, i_elem, i_dim, idx_local_dof)
         type(fespace), intent(in) :: Vh

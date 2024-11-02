@@ -1,7 +1,7 @@
 ! TODO: make it faster
 module matvec
     use settings
-    use quicksort_module
+    use ffem_quicksort
     implicit none
     
 contains
@@ -40,6 +40,24 @@ contains
         A%N_nz = 0
         A%actual_nnz = 0
 
+    end subroutine
+    
+    subroutine MatrixTripletAddValue(A, row, col, val)
+        implicit none
+        type(MATRIX_TRIPLET), intent(inout) :: A
+        integer, intent(in) :: row, col
+        real(8), intent(in) :: val
+        
+        if(A%actual_nnz >= A%N_nz) then
+            print *, "Error: Adding too many non-zero elements"
+            stop
+        end if
+        
+        A%actual_nnz = A%actual_nnz + 1
+        A%row_idx(A%actual_nnz) = row
+        A%col_idx(A%actual_nnz) = col
+        A%val(A%actual_nnz) = val
+    
     end subroutine
 
     subroutine MatrixTripletAddValues(A, idx_row, idx_col, val)
@@ -377,37 +395,58 @@ contains
 
     end subroutine
 
-    ! remove elements in the i_row-th row
-    ! by adding opposite values in the first original_nnz elements
-    subroutine MatrixTripletClearRow(A, i_row)
+    ! remove elements in the i_row-th row where i_row is in row_list
+    subroutine MatrixTripletClearRow(A, row_list)
+        use tools, only: assert
         type(MATRIX_TRIPLET), intent(inout) :: A
-        integer, intent(in) :: i_row
-
-        integer :: nnz_in_row, original_nnz
-        integer, dimension(:), allocatable :: column_indices, row_indices
-        real(8), dimension(:), allocatable :: column_values
-
-        logical, dimension(:), allocatable :: mask
-
-        original_nnz = A%actual_nnz
-        allocate(mask(A%actual_nnz))
-        mask = (A%row_idx(1:original_nnz)==i_row)
-        nnz_in_row = count(mask)
-
-        if(nnz_in_row>0) then
-            allocate(column_indices(nnz_in_row))
-            allocate(column_values(nnz_in_row))
-            allocate(row_indices(nnz_in_row))
-            row_indices = i_row
-            column_indices = pack(A%col_idx(1:original_nnz), mask)
-            column_values = pack(A%val(1:original_nnz), mask)
-            call MatrixTripletAddValues(A, row_indices, column_indices, -column_values)
-            deallocate(row_indices)
-            deallocate(column_indices)
-            deallocate(column_values)
-        end if
+        integer, dimension(:), intent(in) :: row_list
+        
+        integer :: i_nz
+        
+        call assert(all(row_list > 0 .and. row_list <= A%N_row), "Invalid row index")
+        
+        do i_nz = 1, A%actual_nnz
+            if (any(A%row_idx(i_nz) == row_list)) then
+                A%val(i_nz) = 0.0
+            end if
+        end do
 
     end subroutine MatrixTripletClearRow
+    
+    ! remove nondiagonal elements in colth column where col is in col_list
+    ! subtract A(row, col)*x(col) from b(row) 
+    ! store the removed elements in Ae
+    function MatrixTripletEliminateColumn(A, col_list, x, b) result(Ae)
+        type(MATRIX_TRIPLET), intent(inout) :: A
+        integer, dimension(:), intent(in) :: col_list
+        real(8), dimension(:), intent(in) :: x
+        real(8), dimension(:), intent(inout) :: b
+        type(MATRIX_TRIPLET) :: Ae
+        
+        integer :: n_col, col, row
+        
+        integer :: i
+        
+        
+        n_col = size(col_list)
+        
+        
+        call MatrixTripletInit(Ae, A%N_row, A%N_col, A%N_row*n_col)
+        
+        do i = 1, A%actual_nnz
+            if (any(A%col_idx(i) == col_list)) then
+                col = A%col_idx(i)
+                row = A%row_idx(i)
+                if(col/=row) then
+                    call MatrixTripletAddValue(Ae, row, col, A%val(i))
+                    b(row) = b(row) - A%val(i)*x(col)
+                    A%val(i) = 0.0
+                end if
+            end if
+        end do
+        
+        
+    end function
 
     ! get the value of the matrix at (i,j)
     subroutine MatrixColumnGet(A,i,j,value)

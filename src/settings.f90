@@ -54,10 +54,15 @@ module settings
             integer, intent(in) :: deriv_type
         end subroutine
     end interface
+    
+    type :: element_list
+        integer :: N_elem
+        integer, dimension(:), allocatable :: elem_idx
+    end type element_list
 
     type :: MESH2D
         integer :: mesh_type
-        integer :: N_node, N_elem, N_edge, N_le, N_bdryedge
+        integer :: N_node, N_elem, N_edge, N_le, N_bdryedge, N_nodeinelem
         integer, dimension(:,:), allocatable :: ElemNodeConn
         integer, dimension(:,:), allocatable :: EdgeNodeConn
         integer, dimension(:,:), allocatable :: ElemEdgeConn
@@ -68,6 +73,8 @@ module settings
         integer, dimension(:), allocatable :: BdryMarker
         integer, dimension(:), allocatable :: Edge2Bdry
         real(8) :: hmax
+        real(8),dimension(2) :: xlim, ylim
+        type(element_list), dimension(:,:), allocatable :: ElemInBoxes
     end type MESH2D
 
     type :: FESPACE

@@ -11,11 +11,14 @@ contains
         integer, dimension(:,:), intent(inout) :: Elems
         real(8), dimension(:,:), intent(in) :: Nodes
 
-        integer :: N_node, N_elem, N_le
+        integer :: N_node, N_elem, N_le, N_nodeinelem
+        integer :: Nx, Ny, ix, iy
 
         N_node = size(Nodes,2)
+        N_nodeinelem = size(Elems,1)
         N_elem = size(Elems,2)
         N_le = size(Elems,1)
+        
 
         if (N_le .eq. 3) then
             write(*,*) "MeshInit: Triangle mesh detected."
@@ -39,6 +42,7 @@ contains
         Th%N_node = N_node
         Th%N_elem = N_elem
         Th%N_le = N_le
+        Th%N_nodeinelem = N_nodeinelem
         allocate(Th%ElemNodeConn(N_le,N_elem))
         Th%ElemNodeConn = Elems
         allocate(Th%NodeCoord(DIM__,N_node))
@@ -49,6 +53,27 @@ contains
 
         ! get hmax
         call getMeshhmax(Th)
+        
+        ! Bounding box
+        Th%xlim = [minval(Nodes(1,:)), maxval(Nodes(1,:))]
+        Th%ylim = [minval(Nodes(2,:)), maxval(Nodes(2,:))]
+        
+        ! Devide the bounding box into Nx*Ny boxes
+        ! Nx = (xlim(2)-xlim(1))/hmax
+        ! Ny = (ylim(2)-ylim(1))/hmax
+        
+        Nx = ceiling((Th%xlim(2)-Th%xlim(1))/Th%hmax)
+        Ny = ceiling((Th%ylim(2)-Th%ylim(1))/Th%hmax)
+        allocate(Th%ElemInBoxes(Nx,Ny))
+        do ix = 1,Nx
+            do iy = 1,Ny
+                Th%ElemInBoxes(ix,iy)%N_elem = 0
+            end do
+        end do
+        
+        call GetElemsInBoxes(Th)
+        
+        
     end subroutine
 
     subroutine MeshFree(Th)
@@ -679,6 +704,74 @@ contains
         end do
 
     end subroutine GetPointElement
+    
+    
+    
+    ! get the elements in each box in Nx*Ny boxes
+    subroutine GetElemsInBoxes(Th)
+        type(mesh2D), intent(inout) :: Th
+        
+        integer :: i_elem 
+        real(8), dimension(:,:), allocatable :: vertices 
+        real(8), dimension(2) :: xlim_elem, ylim_elem
+        integer :: lx, ly, rx, ry, ix, iy
+        
+        integer, dimension(:,:), allocatable :: save_list ! save: lx,ly,rx,ry
+        
+        allocate(vertices(DIM__, Th%N_nodeinelem))
+        
+        allocate(save_list(4,Th%N_elem))
+        
+        do i_elem = 1,Th%N_elem
+            vertices = Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem))
+            xlim_elem = [minval(vertices(1,:)), maxval(vertices(1,:))]
+            ylim_elem = [minval(vertices(2,:)), maxval(vertices(2,:))]
+            
+            lx = floor((xlim_elem(1)-Th%xlim(1))*size(Th%ElemInBoxes,1)/(Th%xlim(2)-Th%xlim(1))) + 1
+            ly = floor((ylim_elem(1)-Th%ylim(1))*size(Th%ElemInBoxes,2)/(Th%ylim(2)-Th%ylim(1))) + 1
+            rx = ceiling((xlim_elem(2)-Th%xlim(1))*size(Th%ElemInBoxes,1)/(Th%xlim(2)-Th%xlim(1))) + 1
+            ry = ceiling((ylim_elem(2)-Th%ylim(1))*size(Th%ElemInBoxes,2)/(Th%ylim(2)-Th%ylim(1))) + 1
+            
+            lx = max(lx,1)
+            ly = max(ly,1)
+            rx = min(rx,size(Th%ElemInBoxes,1))
+            ry = min(ry,size(Th%ElemInBoxes,2))
+            
+            ! elem is in lx...rx * ly...ry
+            
+            do ix = lx,rx
+                do iy = ly,ry
+                    Th%ElemInBoxes(ix,iy)%N_elem = Th%ElemInBoxes(ix,iy)%N_elem + 1
+                end do
+            end do
+            
+            save_list(:,i_elem) = [lx,ly,rx,ry]
+        end do
+        
+        do ix = 1,size(Th%ElemInBoxes,1)
+            do iy = 1,size(Th%ElemInBoxes,2)
+                allocate(Th%ElemInBoxes(ix,iy)%elem_idx(Th%ElemInBoxes(ix,iy)%N_elem))
+                Th%ElemInBoxes(ix,iy)%N_elem = 0
+            end do
+        end do
+        
+        do i_elem = 1,Th%N_elem
+            lx = save_list(1,i_elem)
+            ly = save_list(2,i_elem)
+            rx = save_list(3,i_elem)
+            ry = save_list(4,i_elem)
+            
+            do ix = lx,rx
+                do iy = ly,ry
+                    Th%ElemInBoxes(ix,iy)%N_elem = Th%ElemInBoxes(ix,iy)%N_elem + 1
+                    Th%ElemInBoxes(ix,iy)%elem_idx(Th%ElemInBoxes(ix,iy)%N_elem) = i_elem
+                end do
+            end do
+        end do
+        
+        write(*,*) "GetElemsInBoxes: Done."
+        
+    end subroutine GetElemsInBoxes
 
     
 end module mesh

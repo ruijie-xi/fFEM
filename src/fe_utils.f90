@@ -174,6 +174,32 @@ contains
 
     end subroutine QuadIntegral
     
+    
+    ! Compute the value of the FE function u at points (barycentric) of element i_elem
+    function FEfunctionGetValue(u, Th, Vh, i_elem, x_ref, deriv_type) result(result)
+        real(8), dimension(:), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type
+        real(8), dimension(:,:), allocatable :: result
+        real(8), dimension(:,:), intent(in) :: x_ref
+
+        real(8), dimension(:), allocatable :: local_u
+        
+        real(8), dimension(:,:,:), allocatable :: basis_values
+        integer :: numpts,i_dim
+        
+        call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
+
+        numpts = size(x_ref, 2)
+        if(allocated(result)) deallocate(result)
+        allocate(result(Vh%dim,numpts))
+        do i_dim = 1,Vh%dim
+            call getLocalDof(u, Vh, i_elem, i_dim, local_u)
+            result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
+        end do 
+    end function FEfunctionGetValue
+    
 
     ! Compute the value of the FE function u at the quadrature points of element i_elem
     subroutine FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)

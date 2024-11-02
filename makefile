@@ -38,8 +38,11 @@ OBJECT_FILES = memory_usage.o \
 		fe_utils.o \
 		visualize.o \
 		assembler.o \
-		solver_umfpack2.o \
-		solver_petsc.o
+		solver_umfpack2.o
+		
+ifeq ($(USE_PETSC),1)
+OBJECT_FILES += solver_petsc.o
+endif
 
 OBJECTS = $(addprefix $(OBJECT_DIR)/, $(OBJECT_FILES))
 

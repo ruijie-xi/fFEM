@@ -11,11 +11,11 @@
 ! that it does not require additional memory beyond the array being sorted. The quicksort
 ! algorithm is widely used in practice due to its efficiency and simplicity.
 ! TODO: use select type to handle different data types
-module quicksort_module
+module ffem_quicksort
    implicit none
 
    private
-   public quicksort
+   public quicksort, unique, binarysearch
    
    interface quicksort
       module procedure quicksort_real8, quicksort_integer
@@ -90,7 +90,71 @@ module quicksort_module
  if (first < i - 1) call quicksort_integer(a(first : i - 1),index(first : i - 1))
  if (j + 1 < last)  call quicksort_integer(a(j + 1 : last),index(j + 1 : last))
 end subroutine quicksort_integer
+
+function unique(array) result(unique_array)
+   integer, intent(in) :: array(:)
+   integer, allocatable,dimension(:) :: unique_array
+
+   integer :: i,count,left,right,N
+   integer, allocatable, dimension(:) :: temp_array,index,temp_unique_array
+
+   N = size(array)
+   allocate(temp_array(N),index(N),temp_unique_array(N))
+   temp_array = array
+   index = [(i,i=1,N)]
+
+   call quicksort_integer(temp_array, index)
+
+   count = 1
+   left = 1
+   right = 1
+   temp_unique_array(1) = temp_array(1)
+   do while (right <= N)
+      if (temp_array(right) /= temp_array(left)) then
+         count = count + 1
+         left = right
+         temp_unique_array(count) = temp_array(right)
+      end if
+      right = right + 1
+   end do
+
+   allocate(unique_array(count))
+
+   unique_array = temp_unique_array(1:count)
+
+end function unique
+
+function binarysearch(sorted_array, value) result(index)
+   integer, intent(in) :: sorted_array(:)
+   integer, intent(in) :: value
+   integer :: index
+   integer :: left, right, mid
+   integer :: N
+
+   N = size(sorted_array)
+   left = 1
+   right = N
+   index = -1
    
- end module quicksort_module
+   if (value < sorted_array(1) .or. value > sorted_array(N)) then 
+      index = -1
+      return
+   end if
+
+   do while (left <= right)
+      mid = (left + right) / 2
+      if (sorted_array(mid) == value) then
+         index = mid
+         return
+      else if (sorted_array(mid) < value) then
+         left = mid + 1
+      else
+         right = mid - 1
+      end if
+   end do
+
+end function binarysearch
+   
+end module ffem_quicksort
  
  

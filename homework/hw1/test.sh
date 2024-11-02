@@ -15,3 +15,5 @@ do
         ./test_jacobi_GS $N $N $coeff $maxsteps $outputdir $smooth
     done
 done
+
+python3 ./plot.py

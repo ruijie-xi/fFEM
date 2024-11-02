@@ -5,14 +5,13 @@
             "name": "(gdb) Fortran",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileWorkspaceFolder}/bin/test_stokes",    // <-- Change this
-            "args": ["10", "10"],                               // <-- Change this
+            "program": "${fileWorkspaceFolder}/homework/hw2/test_twogrid",    // <-- Change this
+            "args": ["5","10"],                               // <-- Change this
             "stopAtEntry": false,
-            "cwd": "${fileWorkspaceFolder}",              // <-- And maybe this
+            "cwd": "${fileWorkspaceFolder}/homework/hw2",              // <-- And maybe this
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "preLaunchTask": "compile",
         }
     ]
 }

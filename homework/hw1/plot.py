@@ -16,7 +16,7 @@ for smooth in smooth_list:
     plt.title("Residue vs. Iteration step ({0} smoothing)".format(smooth_name))
 
     for coeff in coeff_list:
-        inputdir = "N{0}_coeff{1}_smooth{2}".format(N, coeff, smooth)
+        inputdir = "output/N{0}_coeff{1}_smooth{2}".format(N, coeff, smooth)
         with open(inputdir + "/residue.dat") as f:
             lines = f.readlines()
             step = []
