@@ -122,7 +122,7 @@ contains
         integer, intent(in) :: Gauss_type
         integer,dimension(:,:),intent(in) :: assemble_info
         ! asssemble_info: coe_fun_dim,  test_dim, test_derive_type
-        real(8), dimension(:) :: b
+        type(VECTOR) :: b 
 
 
         integer :: i_elem, i_assemble
@@ -147,7 +147,7 @@ contains
                 call LocalVector(i_elem, coe_fun, coe_fun_dim, Th, Vh_test,&
                     test_dim, test_derive_type, Gauss_type, local_vec)
 
-                b(ind_test) = b(ind_test) + coe_num*local_vec
+                b%data(ind_test) = b%data(ind_test) + coe_num*local_vec
                 deallocate(local_vec)
             end do
 

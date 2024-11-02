@@ -116,10 +116,93 @@ module settings
         integer, dimension(:), allocatable :: col_idx ! column index of non-zero elements, N_nz
         real(8), dimension(:), allocatable :: val ! non-zero elements, N_nz
     end type MATRIX_ROW
+    
+    
+    ! Vector
+    type :: VECTOR 
+        integer :: size
+        real(8), dimension(:), allocatable :: data
+        
+    contains 
+        procedure :: Init => VECTOR_Init
+        procedure :: Norm => VECTOR_normL2
+        
+        procedure, pass(self) :: AddVector => VECTOR_Add_vector
+        procedure, pass(self) :: AddScalar => VECTOR_Add_scalar
+        
+    end type VECTOR
+    
+    interface assignment(=)
+        module procedure VECTOR_Assign_vector
+        module procedure VECTOR_Assign_scalar
+    end interface assignment(=)
 
     ! some useful constants
     real(8), parameter :: m_pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
     
 contains
+
+    ! Initialize vector
+    subroutine VECTOR_Init(self, n)
+        class(VECTOR) :: self
+        integer, intent(in) :: n
+        
+        self%size = n
+        allocate(self%data(n))
+        self%data = 0d0
+    end subroutine VECTOR_Init
+    
+    function VECTOR_normL2(self) result(norm)
+        class(VECTOR) :: self
+        real(8) :: norm
+        norm = sqrt(sum(self%data**2))/self%size
+    end function VECTOR_normL2 
+    
+    subroutine VECTOR_Assign_vector(self, other)
+        class(VECTOR), intent(out) :: self
+        class(VECTOR), intent(in) :: other
+        
+        self%size = other%size
+        
+        if(self%size /= other%size) then
+            deallocate(self%data)
+            allocate(self%data(other%size))
+        end if
+        
+        self%data = other%data
+    end subroutine VECTOR_Assign_vector
+    
+    subroutine VECTOR_Assign_scalar(self, scalar)
+        class(VECTOR), intent(out) :: self
+        real(8), intent(in) :: scalar
+        
+        self%data = scalar
+    end subroutine VECTOR_Assign_scalar
+    
+    subroutine VECTOR_Add_vector(self, other, a)
+        class(VECTOR), intent(inout) :: self
+        class(VECTOR), intent(in) :: other
+
+        real(8), intent(in), optional :: a
+        
+        if(self%size /= other%size) then
+            write(*,*) "Error: size mismatch in VECTOR_Add_vector"
+            stop
+        end if
+        
+        if (present(a)) then
+            self%data = self%data + a*other%data
+        else
+            self%data = self%data + other%data
+        end if
+    end subroutine VECTOR_Add_vector
+    
+    subroutine VECTOR_Add_scalar(self, a)
+        class(VECTOR), intent(inout) :: self
+        real(8), intent(in) :: a
+        
+        self%data = self%data + a
+    end subroutine VECTOR_Add_scalar
+    
     
 end module settings

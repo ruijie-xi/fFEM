@@ -419,8 +419,8 @@ contains
     function MatrixTripletEliminateColumn(A, col_list, x, b) result(Ae)
         type(MATRIX_TRIPLET), intent(inout) :: A
         integer, dimension(:), intent(in) :: col_list
-        real(8), dimension(:), intent(in) :: x
-        real(8), dimension(:), intent(inout) :: b
+        type(VECTOR), intent(in) :: x
+        type(VECTOR), intent(inout) :: b
         type(MATRIX_TRIPLET) :: Ae
         
         integer :: n_col, col, row
@@ -439,7 +439,7 @@ contains
                 row = A%row_idx(i)
                 if(col/=row) then
                     call MatrixTripletAddValue(Ae, row, col, A%val(i))
-                    b(row) = b(row) - A%val(i)*x(col)
+                    b%data(row) = b%data(row) - A%val(i)*x%data(col)
                     A%val(i) = 0.0
                 end if
             end if
@@ -604,50 +604,20 @@ contains
         end do
 
     end subroutine
-
-    subroutine VectorInit(vec, n)
-        implicit none
-        real(8), dimension(:), allocatable, intent(out) :: vec
-        integer, intent(in) :: n
-
-        allocate(vec(n))
-        vec = 0d0
-
-    end subroutine
-
-    subroutine VectorPrint(vec)
-        implicit none
-        real(8), dimension(:), intent(in) :: vec
-
-        integer :: i
-
-        do i = 1, size(vec)
-            print *, i, vec(i)
-        end do
-
-    end subroutine
-
-    subroutine VectorFree(vec)
-        implicit none
-        real(8), dimension(:), allocatable, intent(inout) :: vec
-
-        deallocate(vec)
-
-    end subroutine
     
     ! y += alpha*A*x
     subroutine AddMultMV(alpha, A, x, y) 
         implicit none
         real(8), intent(in) :: alpha
         type(MATRIX_COLUMN), intent(in) :: A
-        real(8), dimension(:), intent(in) :: x
-        real(8), dimension(:), intent(inout) :: y
+        type(VECTOR), intent(in) :: x
+        type(VECTOR), intent(inout) :: y
 
         integer :: i, j
 
         do j = 1, A%N_col
             do i = A%col_ptr(j), A%col_ptr(j+1)-1
-                y(A%row_idx(i)) = y(A%row_idx(i)) + alpha*A%val(i)*x(j)
+                y%data(A%row_idx(i)) = y%data(A%row_idx(i)) + alpha*A%val(i)*x%data(j)
             end do
         end do
 

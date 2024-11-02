@@ -5,8 +5,8 @@ contains
 
 subroutine SolverSolveUMFPACK2(A,b,x)
     type(MATRIX_COLUMN) :: A
-    real(8),dimension(:) :: b
-    real(8),dimension(:) :: x
+    type(VECTOR) :: b
+    type(VECTOR) :: x
     
     integer :: i_nz, i_col
 
@@ -21,8 +21,8 @@ subroutine SolverSolveUMFPACK2(A,b,x)
 
     call ums2in(icntl, cntl, keep)
 
-    lvalue = 10*A%N_nz
-    lindex = 10*A%N_nz
+    lvalue = 20*A%N_nz
+    lindex = 20*A%N_nz
     
     allocate(index(lindex),value(lvalue))
         

@@ -11,8 +11,8 @@ contains
 
 subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
     type(MATRIX_COLUMN), intent(in) :: A 
-    real(8), dimension(:), intent(in) :: b
-    real(8), dimension(:), intent(inout) :: x
+    type(VECTOR), intent(in) :: b
+    type(VECTOR), intent(inout) :: x
     real(8), intent(in) :: rtol
     integer, intent(in) :: max_steps
     integer, intent(in) :: smoother
@@ -21,14 +21,14 @@ subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
     type(MATRIX_COLUMN) :: At
     
     ! residue
-    real(8), dimension(:), allocatable :: r
+    type(VECTOR) :: r
     real(8) :: res, res_old, rate
     
     integer :: i_step
     
     call assert(A%N_row==A%N_col, "A must be square matrix!")
-    call assert(A%N_col==size(b), "A must be compatible with b!")
-    call assert(A%N_col==size(x), "A must be compatible with x!")
+    call assert(A%N_col==b%size, "A must be compatible with b!")
+    call assert(A%N_col==x%size, "A must be compatible with x!")
     call assert(A%N_col>0, "A must be non-empty matrix!")
     
     if(smoother==SMOOTHER_GS) then
@@ -36,10 +36,10 @@ subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
     end if
         
     ! initial residue
-    allocate(r(size(b)))
+    call r%Init(b%size)
     r = b
     call AddMultMV(-1d0, A, x, r)
-    res = maxval(abs(r))
+    res = r%Norm()
     
     if(present(writeunit)) then
         write(*,*) "Step = ", 0, "Residual = ", res
@@ -62,7 +62,7 @@ subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
         res_old = res
         r = b
         call AddMultMV(-1d0, A, x, r)
-        res = maxval(abs(r))
+        res = r%Norm()
         
         ! output residue
         rate = res/res_old
@@ -80,20 +80,18 @@ end subroutine Smooth
 
 subroutine Jacobi_smooth(A, b, x)
     type(MATRIX_COLUMN), intent(in) :: A 
-    real(8), dimension(:), intent(in) :: b
-    real(8), dimension(:), intent(inout) :: x
+    type(VECTOR), intent(in) :: b
+    type(VECTOR), intent(inout) :: x
     
-    real(8), dimension(:), allocatable :: x_old
+    type(VECTOR) :: x_old, diag
     
     integer :: i_nz, i_row
     integer :: row, col
-    real(8), dimension(:), allocatable :: diag
     real(8), parameter :: omega = 2d0/3d0
     
-    allocate(diag(A%N_col))
-    diag = 0d0
+    call diag%Init(A%N_col)
+    call x_old%Init(x%size)
     
-    allocate(x_old(size(x)))
     x_old = x
     
     ! Jacobi smoothing
@@ -102,22 +100,22 @@ subroutine Jacobi_smooth(A, b, x)
     do col = 1, A%N_col
         do i_nz = A%col_ptr(col), A%col_ptr(col+1)-1
             row = A%row_idx(i_nz)
-            x(row) = x(row) - A%val(i_nz)*x_old(col)
+            x%data(row) = x%data(row) - A%val(i_nz)*x_old%data(col)
             if (row==col) then
-                diag(col) = A%val(i_nz)
+                diag%data(col) = A%val(i_nz)
             end if
         end do
-        if (abs(diag(col))<1d-8) then
+        if (abs(diag%data(col))<1d-8) then
             write(*,*) "Diagonal element of column ", col, " is too small!"
             stop
         end if
     end do
 
     do i_row = 1, A%N_row
-        x(i_row) = x(i_row)/diag(i_row)
+        x%data(i_row) = x%data(i_row)/diag%data(i_row)
     end do
     
-    x = x_old + omega*x
+    x%data = x_old%data + omega*x%data
     
 end subroutine Jacobi_smooth
 
@@ -125,39 +123,39 @@ end subroutine Jacobi_smooth
 ! Pass the transpose of A
 subroutine GS_smooth(At, b, x)
     type(MATRIX_COLUMN), intent(in) :: At
-    real(8), dimension(:), intent(in) :: b
-    real(8), dimension(:), intent(inout) :: x 
-    real(8), dimension(:), allocatable :: x_old
-    real(8), dimension(:), allocatable :: diag
+    type(VECTOR), intent(in) :: b
+    type(VECTOR), intent(inout) :: x 
+    type(VECTOR) :: x_old, diag
+    
     
     integer :: i_nz
     integer :: row, col
     
-    allocate(x_old(size(x)))
+    call x_old%Init(x%size)
     x_old = x
     
-    allocate(diag(At%N_col))
+    call diag%Init(At%N_col)
     diag = 0d0
     
     ! Gauss-Seidel smoothing
     i_nz = 0
     do col = 1, At%N_col
-        x(col) = b(col)
+        x%data(col) = b%data(col)
         do i_nz = At%col_ptr(col), At%col_ptr(col+1)-1
             row = At%row_idx(i_nz)
             if (row==col) then
-                diag(col) = At%val(i_nz)
+                diag%data(col) = At%val(i_nz)
             else if (row<col) then
-                x(col) = x(col) - At%val(i_nz)*x(row)
+                x%data(col) = x%data(col) - At%val(i_nz)*x%data(row)
             else
-                x(col) = x(col) - At%val(i_nz)*x_old(row)
+                x%data(col) = x%data(col) - At%val(i_nz)*x_old%data(row)
             end if
         end do
-        if (abs(diag(col))<1d-8) then
+        if (abs(diag%data(col))<1d-8) then
             write(*,*) "Diagonal element of column ", col, " is too small!"
             stop
         end if
-        x(col) = x(col)/diag(col)
+        x%data(col) = x%data(col)/diag%data(col)
     end do
         
 end subroutine GS_smooth

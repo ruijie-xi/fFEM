@@ -177,7 +177,7 @@ contains
     
     ! Compute the value of the FE function u at points (barycentric) of element i_elem
     function FEfunctionGetValue(u, Th, Vh, i_elem, x_ref, deriv_type) result(result)
-        real(8), dimension(:), intent(in) :: u
+        type(VECTOR), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, deriv_type
@@ -195,7 +195,7 @@ contains
         if(allocated(result)) deallocate(result)
         allocate(result(Vh%dim,numpts))
         do i_dim = 1,Vh%dim
-            call getLocalDof(u, Vh, i_elem, i_dim, local_u)
+            call getLocalDof(u%data, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 
     end function FEfunctionGetValue

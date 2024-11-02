@@ -2,6 +2,19 @@ module module_prolongation
     use settings
     implicit none
     
+    
+    type GridTransfer
+        type(MESH2D), pointer :: Th_fine, Th_coarse
+        type(FESPACE), pointer :: Vh_fine, Vh_coarse   
+        
+    contains
+    
+        procedure :: SetSpace
+        procedure :: FineToCoarse
+        procedure :: CoarseToFine
+        
+    end type GridTransfer
+    
 contains
 
 ! Check if a point is in an element
@@ -138,8 +151,8 @@ subroutine OperatorTransfer(x, Th, Vh, Th_target, Vh_target, x_target)
     type(FESPACE), intent(in) :: Vh
     type(MESH2D), intent(in) :: Th_target
     type(FESPACE), intent(in) :: Vh_target
-    real(8), dimension(:), intent(in) :: x
-    real(8), dimension(:), intent(out), allocatable :: x_target
+    type(VECTOR), intent(in) :: x
+    type(VECTOR), intent(out) :: x_target
     
     integer :: i_elem, i_node_tg
     real(8), dimension(2) :: refpt
@@ -148,9 +161,9 @@ subroutine OperatorTransfer(x, Th, Vh, Th_target, Vh_target, x_target)
     real(8), dimension(:,:), allocatable :: results
     
     
-    call assert(size(x)==Th%N_node, 'OperatorTransfer: only works for linear elements')
+    call assert(x%size==Th%N_node, 'OperatorTransfer: only works for linear elements')
     
-    allocate(x_target(Th_target%N_node))
+    call x_target%Init(Th_target%N_node)
     allocate(results(1,1))
     
     do i_node_tg = 1, Th_target%N_node
@@ -163,10 +176,38 @@ subroutine OperatorTransfer(x, Th, Vh, Th_target, Vh_target, x_target)
                         
         results = FEfunctionGetValue(x, Th, Vh, i_elem, refpts, DERIV_NONE)
         
-        x_target(i_node_tg) = results(1,1)
+        x_target%data(i_node_tg) = results(1,1)
         
     end do
     
 end subroutine OperatorTransfer
+
+subroutine SetSpace(self, Th_fine_, Vh_fine_, Th_coarse_, Vh_coarse_)
+    class(GridTransfer) :: self
+    type(MESH2D), target :: Th_fine_, Th_coarse_
+    type(FESPACE), target :: Vh_fine_, Vh_coarse_
+    
+    self%Th_fine => Th_fine_
+    self%Th_coarse => Th_coarse_
+    self%Vh_fine => Vh_fine_
+    self%Vh_coarse => Vh_coarse_
+    
+end subroutine
+
+subroutine FineToCoarse(self, x, y)
+    class(GridTransfer) :: self
+    type(VECTOR) :: x
+    type(VECTOR) :: y
+    
+    call OperatorTransfer(x, self%Th_fine, self%Vh_fine, self%Th_coarse, self%Vh_coarse, y)
+end subroutine
+
+subroutine CoarseToFine(self, x, y)
+    class(GridTransfer) :: self
+    type(VECTOR) :: x
+    type(VECTOR) :: y
+    
+    call OperatorTransfer(x, self%Th_coarse, self%Vh_coarse, self%Th_fine, self%Vh_fine, y)
+end subroutine
 
 end module module_prolongation
