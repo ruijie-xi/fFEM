@@ -97,7 +97,7 @@ subroutine DirichletBC(A, x, b, Th, Vh, bndy_func)
     
     integer, dimension(:), allocatable :: dof_list 
     
-    allocate(dof_list(Vh%N_DOF))
+    allocate(dof_list(2*Vh%N_DOF))
     dof_list = 0
     
     i_dof = 0
@@ -252,8 +252,9 @@ program test_multigrid
     
     block
         type(VECTOR) :: bc 
+        call bc%Init(fes_list(1)%N_DOF)
         do i = 1, n_level-1
-            call bc%Init(fes_list(i)%N_DOF)
+            call bc%Reset(fes_list(i)%N_DOF)
             call DirichletBC(Mat_list(i), bc, bc, mesh_list(i), fes_list(i), zero_func)
         end do
     end block
@@ -276,8 +277,9 @@ program test_multigrid
     end do
         
     
-    call solver_multigrid(Mat_col_list, Tr_list, b, x, 1d-8, 100, SMOOTHER_JACOBI, 10, 10, .true.)
+    call solver_multigrid(Mat_col_list, Tr_list, b, x, 1d-8, 100, SMOOTHER_GS, 20, 20, .true.)
     
+    ! call Smooth(Mat_col_list(n_level), b, x, 1d-8, 1000, SMOOTHER_GS, 10)
     
     call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_H1, Gauss_type, H1error)
     call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_L2, Gauss_type, L2error)

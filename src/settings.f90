@@ -125,7 +125,8 @@ module settings
         
     contains 
         procedure :: Init => VECTOR_Init
-        procedure :: Norm => VECTOR_normL2
+        procedure :: Norm => VECTOR_normInf
+        procedure :: Reset => VECTOR_Reset
         
         procedure, pass(self) :: AddVector => VECTOR_Add_vector
         procedure, pass(self) :: AddScalar => VECTOR_Add_scalar
@@ -147,16 +148,36 @@ contains
         class(VECTOR) :: self
         integer, intent(in) :: n
         
+        if(allocated(self%data)) write(*,*) "Warning: VECTOR_Init: vector is already initialized"
+        
         self%size = n
         allocate(self%data(n))
         self%data = 0d0
     end subroutine VECTOR_Init
     
+    subroutine VECTOR_Reset(self, n)
+        class(VECTOR) :: self
+        integer, intent(in) :: n
+        
+        if(allocated(self%data)) deallocate(self%data)
+        
+        self%size = n
+        allocate(self%data(n))
+        self%data = 0d0
+    end subroutine VECTOR_Reset
+    
     function VECTOR_normL2(self) result(norm)
         class(VECTOR) :: self
         real(8) :: norm
-        norm = sqrt(sum(self%data**2))/self%size
+        norm = sqrt(sum(self%data**2)/self%size)
     end function VECTOR_normL2 
+    
+    function VECTOR_normInf(self) result(norm)
+        class(VECTOR) :: self
+        real(8) :: norm
+        norm = maxval(abs(self%data))
+    end function VECTOR_normInf 
+    
     
     subroutine VECTOR_Assign_vector(self, other)
         class(VECTOR), intent(out) :: self

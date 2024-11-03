@@ -19,9 +19,7 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     logical, optional :: print_screen
     integer, intent(in), optional :: writeunit
     
-    integer :: i_smooth
     integer :: n_level
-    
     
     type(MATRIX_COLUMN), dimension(:), allocatable :: Mat_ts
     
@@ -36,7 +34,7 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     ! initial residue
     r = b
     call AddMultMV(-1d0, Mats(n_level), x, r)
-    res = sum(sqrt(r%data**2))/r%size
+    res = r%Norm()
     
     
     if(.not. present(print_screen)) print_screen = .true.
@@ -57,7 +55,7 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     
     do i_step = 1, max_steps
         
-        x = cycle(n_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
+        call cycle(n_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_post)
     
         ! output residue
         res_old = res
@@ -82,13 +80,13 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     
 end subroutine solver_multigrid
 
-recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post) result(x)
+recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_post)
     integer, intent(in) :: i_level
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mats
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mat_ts
     type(GridTransfer), dimension(:), intent(in) :: Trs
     type(VECTOR), intent(in) :: b
-    type(VECTOR) :: x
+    type(VECTOR), intent(inout) :: x
     integer, intent(in) :: smoother
     integer, intent(in) :: n_pre, n_post
     
@@ -96,10 +94,9 @@ recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
     
     type(VECTOR) :: r, r_coarse, e_coarse, e
     
-    call x%Init(b%size)
-    
     if(i_level==1) then
         call SolverSolveUMFPACK2(Mats(i_level), b, x)
+        write(*,*) "Level 1 solved by UMFPACK"
         return
     end if
     
@@ -119,6 +116,8 @@ recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
             stop
         end if
     end do
+    write(*,*) "Level = ", i_level, "Pre Smooth = ", n_pre
+
     
     ! compute residue
     r = b
@@ -128,7 +127,7 @@ recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
     call Trs(i_level-1)%FineToCoarse(r, r_coarse)
     
     ! recursive call
-    e_coarse = cycle(i_level-1, Mats, Mat_ts, Trs, r_coarse, smoother, n_pre, n_post)
+    call cycle(i_level-1, Mats, Mat_ts, Trs, r_coarse, e_coarse, smoother, n_pre, n_post)
     
     call Trs(i_level-1)%CoarseToFine(e_coarse, e)
                 
@@ -146,8 +145,9 @@ recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
             stop
         end if
     end do
+    write(*,*) "Level = ", i_level, "Post Smooth = ", n_post
     
-end function cycle
+end subroutine cycle
 
     
 end module module_twogrid
