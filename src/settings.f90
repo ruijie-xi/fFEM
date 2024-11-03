@@ -176,7 +176,12 @@ contains
         class(VECTOR), intent(out) :: self
         real(8), intent(in) :: scalar
         
-        self%data = scalar
+        if(allocated(self%data)) then
+            self%data = scalar
+        else
+            write(*,*) "Error: VECTOR_Assign_scalar: vector is not initialized"
+            error stop
+        end if
     end subroutine VECTOR_Assign_scalar
     
     subroutine VECTOR_Add_vector(self, other, a)

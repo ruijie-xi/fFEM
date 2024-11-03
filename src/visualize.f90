@@ -9,7 +9,7 @@ contains
 
     subroutine PlotFunction(u, Th, Vh, filename)
         implicit none
-        real(8), dimension(:), intent(in) :: u
+        type(VECTOR), intent(in) :: u
         type(mesh2D),intent(in) :: Th
         type(fespace),intent(in) :: Vh
         character(len=*), intent(in) :: filename
@@ -34,7 +34,7 @@ contains
         end if
 
         do i_elem = 1, Th%N_elem
-            call FEfunctionQuadValue(u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, tmp)
+            call FEfunctionQuadValue(u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, tmp)
             node_countvalue(Th%ElemNodeConn(:,i_elem)) = node_countvalue(Th%ElemNodeConn(:,i_elem)) + 1
             node_value(:,Th%ElemNodeConn(:,i_elem)) = node_value(:,Th%ElemNodeConn(:,i_elem)) + tmp
         end do

@@ -1,5 +1,5 @@
 CF    = mpif90
-FOPT  = -O2 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
+FOPT  = -O0 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
 FOPT_LINK = -g
 
 USE_PETSC = 0

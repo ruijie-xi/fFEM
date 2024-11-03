@@ -135,7 +135,7 @@ subroutine GS_smooth(At, b, x)
     x_old = x
     
     call diag%Init(At%N_col)
-    diag = 0d0
+    diag%data = 0d0
     
     ! Gauss-Seidel smoothing
     i_nz = 0

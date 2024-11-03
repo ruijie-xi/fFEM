@@ -228,15 +228,15 @@ program test_multigrid
     
     allocate(Mat_list(n_level))
     
+    allocate(assemble_info(2,5))
+    assemble_info(1,:) = (/1, 1, DERIV_DX, 1, DERIV_DX/)
+    assemble_info(2,:) = (/1, 1, DERIV_DY, 1, DERIV_DY/)
     do i = 1, n_level
         call MatrixTripletInit(Mat_list(i), fes_list(i)%N_DOF, fes_list(i)%N_DOF, &
         5*mesh_list(i)%N_elem*fes_list(i)%N_local_basis*fes_list(i)%N_local_basis)
         
-        allocate(assemble_info(2,5))
-        assemble_info(1,:) = (/1, 1, DERIV_DX, 1, DERIV_DX/)
-        assemble_info(2,:) = (/1, 1, DERIV_DY, 1, DERIV_DY/)
-        call AssembleMatrixElement(one_func, [1d0,1d0], mesh_list(i), fes_list(i), 0, fes_list(i), 0, assemble_info, &
-                                    Gauss_type, Mat_list(i))
+        call AssembleMatrixElement(one_func, [1d0,1d0], mesh_list(i), fes_list(i), 0, &
+        fes_list(i), 0, assemble_info, Gauss_type, Mat_list(i))
     end do
     
     deallocate(assemble_info)
@@ -276,16 +276,17 @@ program test_multigrid
     end do
         
     
-    call solver_twogrid(A_col, Ac_col, Tr, b, x_fine, 1d-8, 100, SMOOTHER_GS, 10, 10, .true.)
+    call solver_multigrid(Mat_col_list, Tr_list, b, x, 1d-8, 100, SMOOTHER_JACOBI, 10, 10, .true.)
     
-    call ComputeError(u_func, x_fine, Th_fine, Vh_fine, NORM_H1, Gauss_type, H1error)
-    call ComputeError(u_func, x_fine, Th_fine, Vh_fine, NORM_L2, Gauss_type, L2error)
+    
+    call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_H1, Gauss_type, H1error)
+    call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_L2, Gauss_type, L2error)
     write(*,*) "H1 error = ", H1error
     write(*,*) "L2 error = ", L2error
     
     end block solve
     
-    call PlotFunction(x_fine, Th_fine, Vh_fine, "solution.vtk")
+    call PlotFunction(x, mesh_list(n_level), fes_list(n_level), "solution.vtk")
 
 end program test_multigrid
 

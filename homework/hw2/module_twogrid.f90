@@ -23,10 +23,10 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     integer :: n_level
     
     
-    type(MATRIX_COLUMN), dimension(:), allocatable :: At
+    type(MATRIX_COLUMN), dimension(:), allocatable :: Mat_ts
     
     ! residue
-    type(VECTOR) :: r, r_coarse, e_coarse, e
+    type(VECTOR) :: r
     real(8) :: res, res_old, rate
     
     integer :: i_step, i
@@ -48,14 +48,21 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
         write(writeunit,*) 0, res
     end if
     
+    if(smoother==SMOOTHER_GS) then 
+        allocate(Mat_ts(n_level))
+        do i = 1, n_level
+            Mat_ts(i) = MatrixColumnTranspose(Mats(i))
+        end do
+    end if
+    
     do i_step = 1, max_steps
         
-        call cycle()
+        x = cycle(n_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post)
     
         ! output residue
         res_old = res
         r = b
-        call AddMultMV(-1d0, A, x, r)
+        call AddMultMV(-1d0, Mats(n_level), x, r)
         res = r%Norm()
         rate = res/res_old
         
@@ -75,19 +82,21 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     
 end subroutine solver_multigrid
 
-recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_post)
+recursive function cycle(i_level, Mats, Mat_ts, Trs, b, smoother, n_pre, n_post) result(x)
     integer, intent(in) :: i_level
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mats
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mat_ts
     type(GridTransfer), dimension(:), intent(in) :: Trs
     type(VECTOR), intent(in) :: b
-    type(VECTOR), intent(inout) :: x
+    type(VECTOR) :: x
     integer, intent(in) :: smoother
     integer, intent(in) :: n_pre, n_post
     
     integer :: i_smooth
     
     type(VECTOR) :: r, r_coarse, e_coarse, e
+    
+    call x%Init(b%size)
     
     if(i_level==1) then
         call SolverSolveUMFPACK2(Mats(i_level), b, x)
@@ -98,7 +107,6 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
     call e%Init(b%size)
     call r_coarse%Init(Mats(i_level-1)%N_row)
     call e_coarse%Init(Mats(i_level-1)%N_row)
-    
     
     ! pre-smoothing
     do i_smooth = 1, n_pre
@@ -120,7 +128,7 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
     call Trs(i_level-1)%FineToCoarse(r, r_coarse)
     
     ! recursive call
-    call cycle(i_level-1, Mats, Mat_ts, Trs, r_coarse, e_coarse, smoother, n_pre, n_post)
+    e_coarse = cycle(i_level-1, Mats, Mat_ts, Trs, r_coarse, smoother, n_pre, n_post)
     
     call Trs(i_level-1)%CoarseToFine(e_coarse, e)
                 
@@ -139,7 +147,7 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
         end if
     end do
     
-end subroutine cycle
+end function cycle
 
     
 end module module_twogrid

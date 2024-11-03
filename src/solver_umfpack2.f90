@@ -39,7 +39,7 @@ subroutine SolverSolveUMFPACK2(A,b,x)
     
     allocate(w(4*A%N_row))
     call ums2so(A%N_row, 0, .false., lvalue, lindex, value, index, &
-        keep, b, x, w, cntl, icntl, info, rinfo)
+        keep, b%data, x%data, w, cntl, icntl, info, rinfo)
     
 
 end subroutine SolverSolveUMFPACK2

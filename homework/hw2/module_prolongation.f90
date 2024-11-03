@@ -196,7 +196,7 @@ end subroutine
 
 subroutine FineToCoarse(self, x, y)
     class(GridTransfer) :: self
-    type(VECTOR) :: x
+    type(VECTOR), intent(in) :: x
     type(VECTOR) :: y
     
     call OperatorTransfer(x, self%Th_fine, self%Vh_fine, self%Th_coarse, self%Vh_coarse, y)
@@ -204,7 +204,7 @@ end subroutine
 
 subroutine CoarseToFine(self, x, y)
     class(GridTransfer) :: self
-    type(VECTOR) :: x
+    type(VECTOR), intent(in) :: x
     type(VECTOR) :: y
     
     call OperatorTransfer(x, self%Th_coarse, self%Vh_coarse, self%Th_fine, self%Vh_fine, y)

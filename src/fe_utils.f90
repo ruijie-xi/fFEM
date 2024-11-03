@@ -59,7 +59,7 @@ contains
 
     ! Compute different Errors of u and fun
     subroutine ComputeError(fun, u, Th, Vh, norm_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(VECTOR), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: norm_type, Gauss_type
@@ -74,18 +74,18 @@ contains
         case(NORM_L2)
             result = 0d0;
             do i_elem = 1, Th%N_elem
-                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
                 result = result + val
             end do
             result = sqrt(result)
         case(NORM_H1)
             result = 0d0;
             do i_elem = 1, Th%N_elem
-                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
                 result = result + val
-                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DX, Gauss_type, val)
+                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_DX, Gauss_type, val)
                 result = result + val
-                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DY, Gauss_type, val)
+                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_DY, Gauss_type, val)
                 result = result + val
             end do
             result = sqrt(result)
