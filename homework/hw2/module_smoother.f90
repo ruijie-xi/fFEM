@@ -87,7 +87,7 @@ subroutine Jacobi_smooth(A, b, x)
     
     integer :: i_nz, i_row
     integer :: row, col
-    real(8), parameter :: omega = 2d0/3d0
+    real(8), parameter :: omega = 1d0
     
     call diag%Init(A%N_col)
     call x_old%Init(x%size)

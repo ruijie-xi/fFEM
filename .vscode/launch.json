@@ -2,16 +2,34 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Fortran",
+            "name": "test_twogrid",
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileWorkspaceFolder}/homework/hw2/test_twogrid",    // <-- Change this
-            "args": ["10","20"],                               // <-- Change this
+            "args": ["8","16","32","64","128"],                               // <-- Change this
             "stopAtEntry": false,
             "cwd": "${fileWorkspaceFolder}/homework/hw2",              // <-- And maybe this
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
+        },
+        {
+            "name": "poisson2d_MG",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileWorkspaceFolder}/homework/hw2/poisson2d_MG",    // <-- Change this
+            "args": [],                               // <-- Change this
+            "stopAtEntry": false,
+            "cwd": "${fileWorkspaceFolder}/homework/hw2",              // <-- And maybe this
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+        },
+    ],
+    "compounds": [
+        {
+            "name": "Compound",
+            "configurations": ["test_twogrid", "poisson2d_MG"]
         }
     ]
 }

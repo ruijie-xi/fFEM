@@ -16,6 +16,9 @@ lib:
 
 test_twogrid: module_smoother.o module_prolongation.o module_twogrid.o test_twogrid.o
 	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
+	
+test_transfer: module_smoother.o module_prolongation.o module_twogrid.o test_transfer.o
+	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
 
 clean:
-	rm -rf *.o *.mod test_twogrid output/ test.txt *.png
+	rm -rf *.o *.mod test_twogrid output/ test.txt *.png test_transfer

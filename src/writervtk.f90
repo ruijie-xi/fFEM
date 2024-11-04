@@ -67,7 +67,7 @@ MODULE WriterVTK
     write(1,'(A)') "DATASET UNSTRUCTURED_GRID"
     
     ! Coordinates of the points (nodes)
-    write(1,'(A,I10,A)') "POINTS ", nNode, " float"
+    write(1,'(A,I10,A)') "POINTS ", nNode, " double"
     IF(ndim == 2) THEN
       DO ii=1,nNode
         write(1,'(F12.6,F12.6,F12.6)') coords(1,ii), coords(2,ii), fact
@@ -145,19 +145,19 @@ MODULE WriterVTK
     ! Point data
     write(1,'(A,I10)') "POINT_DATA", nNode
     IF(ndof == 1) THEN
-      write(1,'(A)') "SCALARS solution float 1"
+      write(1,'(A)') "SCALARS solution double 1"
       write(1,'(A)') "LOOKUP_TABLE default"
       DO ii=1,nNode
         write(1,'(F12.6)') soln(ii)
       END DO
     ELSE IF(ndof == 2) THEN
-      write(1,'(A)') "VECTORS solution float"
+      write(1,'(A)') "VECTORS solution double"
       DO ii=1,nNode
         ind = (ii-1)*ndof
         write(1,'(F12.6,F12.6,F12.6)') soln(ind+1),soln(ind+2),0.0
       END DO
     ELSE
-      write(1,'(A)') "VECTORS solution float"
+      write(1,'(A)') "VECTORS solution double"
       DO ii=1,nNode
         ind = (ii-1)*ndof
         write(1,'(F12.6,F12.6,F12.6)') soln(ind+1),soln(ind+2),soln(ind+3)

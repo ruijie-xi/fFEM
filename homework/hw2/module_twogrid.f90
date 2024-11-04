@@ -3,12 +3,15 @@ module module_twogrid
     use module_smoother
     use solver_umfpack2
     use module_prolongation
+    use visualize
     implicit none
     
 contains
 
-subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n_post, print_screen, writeunit)
+subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n_post, print_screen, writeunit)
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mats
+    type(MESH2D), dimension(:), intent(in) :: mesh_list
+    type(FESPACE), dimension(:), intent(in) :: fes_list
     type(GridTransfer), dimension(:), intent(in) :: Trs
     type(VECTOR), intent(in) :: b
     type(VECTOR), intent(inout) :: x
@@ -34,8 +37,7 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     ! initial residue
     r = b
     call AddMultMV(-1d0, Mats(n_level), x, r)
-    res = r%Norm()
-    
+    res = r%Norm()    
     
     if(.not. present(print_screen)) print_screen = .true.
     if(print_screen) then
@@ -55,7 +57,7 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
     
     do i_step = 1, max_steps
         
-        call cycle(n_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_post)
+        call cycle(n_level, Mats, Mat_ts, mesh_list, fes_list, Trs, b, x, smoother, n_pre, n_post)
     
         ! output residue
         res_old = res
@@ -75,15 +77,15 @@ subroutine solver_multigrid(Mats, Trs, b, x, rtol, max_steps, smoother, n_pre, n
         if(res<rtol) exit
         
     end do
-    
-    
-    
 end subroutine solver_multigrid
 
-recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_post)
+recursive subroutine cycle(i_level, Mats, Mat_ts, mesh_list, &
+fes_list, Trs, b, x, smoother, n_pre, n_post)
     integer, intent(in) :: i_level
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mats
     type(MATRIX_COLUMN), dimension(:), intent(in) :: Mat_ts
+    type(MESH2D), dimension(:), intent(in) :: mesh_list
+    type(FESPACE), dimension(:), intent(in) :: fes_list
     type(GridTransfer), dimension(:), intent(in) :: Trs
     type(VECTOR), intent(in) :: b
     type(VECTOR), intent(inout) :: x
@@ -95,8 +97,10 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
     type(VECTOR) :: r, r_coarse, e_coarse, e
     
     if(i_level==1) then
-        call SolverSolveUMFPACK2(Mats(i_level), b, x)
-        write(*,*) "Level 1 solved by UMFPACK"
+        do i_smooth = 1, 100
+            call Jacobi_smooth(Mats(i_level), b, x)
+        end do
+        ! call SolverSolveUMFPACK2(Mats(i_level), b, x)
         return
     end if
     
@@ -116,23 +120,27 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
             stop
         end if
     end do
-    write(*,*) "Level = ", i_level, "Pre Smooth = ", n_pre
 
-    
     ! compute residue
     r = b
     call AddMultMV(-1d0, Mats(i_level), x, r)
     
+    call PlotFunction(x, mesh_list(i_level), fes_list(i_level), "pre_solution.vtk")
+    call PlotFunction(r, mesh_list(i_level), fes_list(i_level), "pre_residual.vtk")
+        
     ! restrict to coarse grid
     call Trs(i_level-1)%FineToCoarse(r, r_coarse)
-    
+            
     ! recursive call
-    call cycle(i_level-1, Mats, Mat_ts, Trs, r_coarse, e_coarse, smoother, n_pre, n_post)
+    call cycle(i_level-1, Mats, Mat_ts, mesh_list, fes_list, Trs, r_coarse, e_coarse, smoother, n_pre, n_post)
     
     call Trs(i_level-1)%CoarseToFine(e_coarse, e)
                 
     ! update x
     call x%AddVector(e)
+    
+    call PlotFunction(x, mesh_list(i_level), fes_list(i_level), "cgc_solution.vtk")
+    
     
     ! post-smoothing
     do i_smooth = 1, n_post
@@ -145,7 +153,6 @@ recursive subroutine cycle(i_level, Mats, Mat_ts, Trs, b, x, smoother, n_pre, n_
             stop
         end if
     end do
-    write(*,*) "Level = ", i_level, "Post Smooth = ", n_post
     
 end subroutine cycle
 

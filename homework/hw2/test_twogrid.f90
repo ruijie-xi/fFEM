@@ -3,9 +3,33 @@ module my_module
     use timer
     implicit none
     
-    real(8) :: coeff = 2d0
+    real(8) :: coeff = 16d0
     
 contains
+
+
+subroutine x0_func(x,f,deriv_type)
+    use settings
+    implicit none
+    real(8), intent(in), dimension(:) :: x
+    real(8), dimension(:), allocatable, intent(out) :: f
+    integer, intent(in) :: deriv_type
+    real(8), parameter :: pi = 3.14159265358979323846264d0
+
+    if (.not. allocated(f)) allocate(f(1))
+
+    select case(deriv_type)
+    case(DERIV_NONE)
+        f(1) = sin(1d0*pi*x(1))*sin(1d0*pi*x(2)) &
+        + sin(2d0*pi*x(1))*sin(2d0*pi*x(2)) &
+        + sin(5d0*pi*x(1))*sin(5d0*pi*x(2)) &
+        + sin(10d0*pi*x(1))*sin(10d0*pi*x(2)) &
+        + sin(20d0*pi*x(1))*sin(20d0*pi*x(2)) &
+        + sin(40d0*pi*x(1))*sin(40d0*pi*x(2))
+    end select
+end subroutine x0_func
+
+
 
 subroutine one_func(x,f,deriv_type)
     use settings
@@ -50,7 +74,11 @@ subroutine rhs_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = ((coeff*pi)**2+(coeff*pi)**2)*sin(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = ((coeff*pi)**2+(coeff*pi)**2)*sin(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = -2d0*((1d0-6d0*x(1)**2)*x(2)**2*(1d0-x(2)**2) +&
+        !  (1d0-6d0*x(2)**2)*x(1)**2*(1d0-x(1)**2))
+        ! f(1) = 0d0
+        f(1) = 2.0d0*(2.0d0-x(1)*x(1)-x(2)*x(2))
     end select
 end subroutine rhs_func
 
@@ -66,11 +94,20 @@ subroutine u_func(x,f,deriv_type)
 
     select case(deriv_type)
     case(DERIV_NONE)
-        f(1) = sin(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = sin(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = x(1)**2*(1d0-x(1)**2)*x(2)**2*(1d0-x(2)**2)
+        ! f(1) = 0d0
+        f(1) = (x(1)*x(1)-1.0d0)*(x(2)*x(2)-1.0d0)
     case(DERIV_DX)
-        f(1) = coeff*pi*cos(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = coeff*pi*cos(coeff*pi*x(1))*sin(coeff*pi*x(2))
+        ! f(1) = (2d0*x(1)-4d0*x(1)**3)*(1d0-x(2)**2)*x(2)**2
+        ! f(1) = 0d0
+        f(1) = 2.0d0*x(1)*(x(2)*x(2)-1.0d0)
     case(DERIV_DY)
-        f(1) = coeff*pi*sin(coeff*pi*x(1))*cos(coeff*pi*x(2))
+        ! f(1) = coeff*pi*sin(coeff*pi*x(1))*cos(coeff*pi*x(2))
+        ! f(1) = (2d0*x(2)-4d0*x(2)**3)*(1d0-x(1)**2)*x(1)**2
+        ! f(1) = 0d0
+        f(1) = 2.0d0*x(2)*(x(1)*x(1)-1.0d0)
     end select
 end subroutine u_func
 
@@ -176,9 +213,6 @@ program test_multigrid
     integer, parameter :: DOF_type = DOF_P1
     integer, parameter :: Gauss_type = TrianglePt4
     
-    ! timer
-    real :: t_test
-
     ! command line arguments
     character(len=100) :: arg
 
@@ -211,7 +245,7 @@ program test_multigrid
         
     allocate(mesh_list(n_level))
     do i = 1, n_level
-        call TriangleMesh(0d0,1d0,0d0,1d0,N_list(i),N_list(i),elems,nodes)
+        call TriangleMesh(-1d0,1d0,-1d0,1d0,N_list(i),N_list(i),elems,nodes)
         call MeshInit(elems, nodes, mesh_list(i))
     end do
 
@@ -249,7 +283,7 @@ program test_multigrid
     ! Dirichlet BC
     call x%Init(fes_list(n_level)%N_DOF)
     call DirichletBC(Mat_list(n_level), x, b, mesh_list(n_level), fes_list(n_level), u_func)
-    
+        
     block
         type(VECTOR) :: bc 
         call bc%Init(fes_list(1)%N_DOF)
@@ -258,6 +292,8 @@ program test_multigrid
             call DirichletBC(Mat_list(i), bc, bc, mesh_list(i), fes_list(i), zero_func)
         end do
     end block
+    
+    ! call Interpolate(x%data, x0_func, mesh_list(n_level), fes_list(n_level));
         
     ! solve
     solve: block
@@ -275,12 +311,10 @@ program test_multigrid
     do i = 1, n_level-1
         call Tr_list(i)%SetSpace(mesh_list(i+1), fes_list(i+1), mesh_list(i), fes_list(i))
     end do
+    
+    call solver_multigrid(mesh_list, fes_list, Mat_col_list, Tr_list, b, x, 1d-10, 100, &
+    SMOOTHER_JACOBI, 2, 2, .true.)
         
-    
-    call solver_multigrid(Mat_col_list, Tr_list, b, x, 1d-8, 100, SMOOTHER_GS, 20, 20, .true.)
-    
-    ! call Smooth(Mat_col_list(n_level), b, x, 1d-8, 1000, SMOOTHER_GS, 10)
-    
     call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_H1, Gauss_type, H1error)
     call ComputeError(u_func, x, mesh_list(n_level), fes_list(n_level), NORM_L2, Gauss_type, L2error)
     write(*,*) "H1 error = ", H1error
@@ -288,8 +322,6 @@ program test_multigrid
     
     end block solve
     
-    call PlotFunction(x, mesh_list(n_level), fes_list(n_level), "solution.vtk")
-
 end program test_multigrid
 
 
