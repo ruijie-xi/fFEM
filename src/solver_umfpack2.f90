@@ -21,8 +21,8 @@ subroutine SolverSolveUMFPACK2(A,b,x)
 
     call ums2in(icntl, cntl, keep)
 
-    lvalue = 20*A%N_nz
-    lindex = 20*A%N_nz
+    lvalue = 100*A%N_nz
+    lindex = 100*A%N_nz
     
     allocate(index(lindex),value(lvalue))
         

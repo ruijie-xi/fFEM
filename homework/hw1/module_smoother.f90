@@ -15,7 +15,7 @@ subroutine Jacobi_smooth(A, b, x0, x)
     integer :: i_nz, i_row
     integer :: row, col
     real(8), dimension(:), allocatable :: diag
-    real(8), parameter :: omega = 1d0
+    real(8), parameter :: omega = 2d0/3d0
     
     call assert(A%N_row==A%N_col, "A must be square matrix!")
     call assert(A%N_col==size(b), "A must be compatible with b!")

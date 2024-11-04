@@ -24,17 +24,16 @@ subroutine fespaceInit_P2(Vh,Th,dim)
     end do
 end subroutine fespaceInit_P2
 
-subroutine ComputeDof_P2(result,fun,Th,i_dof)
-    type(mesh2D) :: Th
-    procedure(func) :: fun
-    real(8), intent(out) :: result
-    integer,intent(in) :: i_dof
-
-    integer :: idx, i_dim, i_node, i_edge
-    integer :: i_node1, i_node2
-    real(8), dimension(DIM__) :: coord
-    real(8), dimension(:), allocatable :: val
-
+! Given i_dof, find the coordinates of the corresponding node and the dimension
+! Lagrangian P2 element
+subroutine FindDofLocation_P2(Th, i_dof, pt, i_dim)
+    type(mesh2D), intent(in) :: Th
+    integer, intent(in) :: i_dof
+    real(8), dimension(DIM__), intent(out) :: pt
+    integer, intent(out) :: i_dim
+    
+    integer :: idx, i_node, i_edge, i_node1, i_node2
+    
     i_dim = i_dof / (Th%N_node+Th%N_edge) + 1
     idx = mod(i_dof, Th%N_node+Th%N_edge)
     if (idx == 0) then
@@ -44,18 +43,33 @@ subroutine ComputeDof_P2(result,fun,Th,i_dof)
 
     if (idx<=Th%N_node) then
         i_node = idx
-        call fun(Th%NodeCoord(:,i_node), val, DERIV_NONE)
-        result = val(i_dim)
+        pt = Th%NodeCoord(:,i_node)
         return
     elseif (idx>Th%N_node) then
         i_edge = idx - Th%N_node
         i_node1 = Th%EdgeNodeConn(1, i_edge)
         i_node2 = Th%EdgeNodeConn(2, i_edge)
-        coord = (Th%NodeCoord(:,i_node1) + Th%NodeCoord(:,i_node2)) / 2d0
-        call fun(coord, val, DERIV_NONE)
-        result = val(i_dim)
+        pt = (Th%NodeCoord(:,i_node1) + Th%NodeCoord(:,i_node2)) / 2d0
         return
     end if
+    
+    
+end subroutine
+
+subroutine ComputeDof_P2(result,fun,Th,i_dof)
+    type(mesh2D) :: Th
+    procedure(func) :: fun
+    real(8), intent(out) :: result
+    integer,intent(in) :: i_dof
+    
+    real(8), dimension(DIM__) :: coord
+    real(8), dimension(:), allocatable :: val
+    integer :: i_dim
+    
+    call FindDofLocation_P2(Th, i_dof, coord, i_dim)
+    
+    call fun(coord, val, DERIV_NONE)
+    result = val(i_dim)
 
 end subroutine ComputeDof_P2
 

@@ -9,16 +9,13 @@ include ${FFEMDIR}/makefile.inc
 	${CF} -c ${FOPT} ${FINCL} $< -o $@ 
 	
 	
-default: lib test_twogrid
+default: lib test_multigrid
 	
 lib: 
 	cd ${FFEMDIR} && make && cd -
 
-test_twogrid: module_smoother.o module_prolongation.o module_twogrid.o test_twogrid.o
+test_multigrid: module_smoother.o module_prolongation.o module_multigrid.o test_multigrid.o
 	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
 	
-test_transfer: module_smoother.o module_prolongation.o module_twogrid.o test_transfer.o
-	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
-
 clean:
-	rm -rf *.o *.mod test_twogrid output/ test.txt *.png test_transfer
+	rm -rf *.o *.mod test_multigrid

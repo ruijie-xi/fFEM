@@ -1,11 +1,18 @@
 module module_prolongation
     use settings
+    use solver_umfpack2
+    use module_smoother
+    use matvec, only: AddMultMV
+    use fe, only: FindDofLocation
     implicit none
     
     
     type GridTransfer
         type(MESH2D), pointer :: Th_fine, Th_coarse
-        type(FESPACE), pointer :: Vh_fine, Vh_coarse   
+        type(FESPACE), pointer :: Vh_fine, Vh_coarse
+        
+        type(MATRIX_COLUMN), pointer :: M_fine
+        type(MATRIX_COLUMN), pointer :: M_coarse
         
     contains
     
@@ -154,43 +161,50 @@ subroutine OperatorTransfer(x, Th, Vh, Th_target, Vh_target, x_target)
     type(VECTOR), intent(in) :: x
     type(VECTOR), intent(out) :: x_target
     
-    integer :: i_elem, i_node_tg
+    integer :: i_elem, i_dof_tg, i_dim
+    
+    real(8), dimension(DIM__) :: tg_pt
+    
     real(8), dimension(2) :: refpt
     
     real(8), dimension(2,1) :: refpts
     real(8), dimension(:,:), allocatable :: results
     
     
-    call assert(x%size==Th%N_node, 'OperatorTransfer: only works for linear elements')
-    
-    call x_target%Init(Th_target%N_node)
+    call x_target%Init(Vh_target%N_DOF)
     allocate(results(1,1))
     
-    do i_node_tg = 1, Th_target%N_node
-        i_elem = FindPointElement(Th, Th_target%NodeCoord(:,i_node_tg))
+    do i_dof_tg = 1, Vh_target%N_DOF
         
-        refpt = GetRefpt(Th_target%NodeCoord(:,i_node_tg), &
-                        Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)))
+        call FindDofLocation(Th_target, Vh_target, i_dof_tg, tg_pt, i_dim)
+        
+        i_elem = FindPointElement(Th, tg_pt)
+        
+        refpt = GetRefpt(tg_pt, Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)))
                         
         refpts = reshape(refpt, [2,1])
                         
         results = FEfunctionGetValue(x, Th, Vh, i_elem, refpts, DERIV_NONE)
         
-        x_target%data(i_node_tg) = results(1,1)
+        x_target%data(i_dof_tg) = results(i_dim,1)
         
     end do
     
 end subroutine OperatorTransfer
 
-subroutine SetSpace(self, Th_fine_, Vh_fine_, Th_coarse_, Vh_coarse_)
+subroutine SetSpace(self, Th_fine_, Vh_fine_, Mass_fine_, Th_coarse_, Vh_coarse_, Mass_coarse_)
     class(GridTransfer) :: self
     type(MESH2D), target :: Th_fine_, Th_coarse_
     type(FESPACE), target :: Vh_fine_, Vh_coarse_
+    type(MATRIX_COLUMN), target :: Mass_fine_, Mass_coarse_
     
     self%Th_fine => Th_fine_
     self%Th_coarse => Th_coarse_
     self%Vh_fine => Vh_fine_
-    self%Vh_coarse => Vh_coarse_
+    self%Vh_coarse => Vh_coarse_    
+    
+    self%M_fine => Mass_fine_
+    self%M_coarse => Mass_coarse_
     
 end subroutine
 
@@ -199,7 +213,16 @@ subroutine FineToCoarse(self, x, y)
     type(VECTOR), intent(in) :: x
     type(VECTOR) :: y
     
-    call OperatorTransfer(x, self%Th_fine, self%Vh_fine, self%Th_coarse, self%Vh_coarse, y)
+    type(VECTOR) :: x_temp
+    
+    call x_temp%Init(x%size)
+        
+    call SolverSolveUMFPACK2(self%M_fine, x, x_temp)
+        
+    call OperatorTransfer(x_temp, self%Th_fine, self%Vh_fine, self%Th_coarse, self%Vh_coarse, y)
+    
+    call AddMultMV(1d0, self%M_coarse, y, 0d0, y)
+    
 end subroutine
 
 subroutine CoarseToFine(self, x, y)

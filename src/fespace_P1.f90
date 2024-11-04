@@ -23,22 +23,41 @@ subroutine fespaceInit_P1(Vh,Th,dim)
     end do
 end subroutine fespaceInit_P1
 
-subroutine ComputeDof_P1(result,fun,Th,i_dof)
-    type(mesh2D) :: Th
-    procedure(func) :: fun
-    real(8), intent(out) :: result
-    integer,intent(in) :: i_dof
 
-    integer :: i_node, i_dim
-    real(8), dimension(:), allocatable :: val
-
+! Given i_dof, find the coordinates of the corresponding node and the dimension
+! Lagrangian P1 element
+subroutine FindDofLocation_P1(Th, i_dof, pt, i_dim)
+    type(mesh2D), intent(in) :: Th
+    integer, intent(in) :: i_dof
+    real(8), dimension(DIM__), intent(out) :: pt
+    integer, intent(out) :: i_dim
+    
+    integer ::  i_node
+    
     i_dim = i_dof / Th%N_node + 1
     i_node = mod(i_dof, Th%N_node)
     if (i_node == 0) then
         i_node = Th%N_node
         i_dim = i_dim - 1
     end if
-    call fun(Th%NodeCoord(:,i_node), val, DERIV_NONE)
+    
+    pt = Th%NodeCoord(:,i_node)
+    
+    
+end subroutine
+
+subroutine ComputeDof_P1(result,fun,Th,i_dof)
+    type(mesh2D) :: Th
+    procedure(func) :: fun
+    real(8), intent(out) :: result
+    integer,intent(in) :: i_dof
+    
+    integer :: i_dim
+    real(8), dimension(DIM__) :: pt 
+    real(8), dimension(:), allocatable :: val
+    
+    call FindDofLocation_P1(Th, i_dof, pt, i_dim)
+    call fun(pt, val, DERIV_NONE)
     result = val(i_dim)
 
 end subroutine ComputeDof_P1

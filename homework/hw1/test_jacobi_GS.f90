@@ -86,7 +86,7 @@ program test_jacobi_GS
     ! assemble matrices
     integer, dimension(:,:), allocatable :: assemble_info
     type(MATRIX_TRIPLET) :: A
-    real(8), dimension(:), allocatable :: b,x
+    type(VECTOR) :: b,x
 
     ! get command line arguments
     if(iargc() /= 6) then
@@ -136,8 +136,6 @@ program test_jacobi_GS
 
     ! assemble rhs and matrix
     call MatrixTripletInit(A, Vh%N_DOF, Vh%N_DOF, 5*Th%N_elem*Vh%N_local_basis*Vh%N_local_basis)
-    allocate(b(Vh%N_DOF))
-    b=0d0
     call timer_start()
     allocate(assemble_info(2,5))
     assemble_info(1,:) = (/1, 1, DERIV_DX, 1, DERIV_DX/)
@@ -149,19 +147,18 @@ program test_jacobi_GS
     ! solve the linear system
     block 
         type(MATRIX_COLUMN) :: A_col
-        real(8), dimension(:), allocatable :: x0,r
+        type(VECTOR) :: x0,r
         integer :: i_step
         real(8) :: res, res_old, rate
         
-        allocate(x(Vh%N_DOF), x0(Vh%N_DOF), r(Vh%N_DOF))
-        x = 0d0
-        x0 = 0d0
-        r = 0d0
-        b = 0d0
+        call x%Init(Vh%N_DOF)
+        call x0%Init(Vh%N_DOF)
+        call r%Init(Vh%N_DOF)
+        call b%Init(Vh%N_DOF)
         
         ! select initial value 
         coeff = coeff_input
-        call Interpolate(x0, x0_func, Th, Vh)
+        call Interpolate(x0%data, x0_func, Th, Vh)
         
         ! set outputfile
         open(unit=10, file=trim(outputdir)//"/residue.dat", status='replace')
@@ -170,9 +167,8 @@ program test_jacobi_GS
 
         ! write initial residue
         r = b
-        call AddMultMV(-1d0, A_col, x0, r)
-        ! res = sqrt(sum(r**2))
-        res = maxval(abs(r))
+        call AddMultMV(-1d0, A_col, x0, 1d0, r)
+        res = r%Norm()
         write(10,*) 0, res
         write(*,*) "Step = 0, Residual = ", res
         
@@ -182,17 +178,17 @@ program test_jacobi_GS
             
             ! smooth
             if(smooth_type == 1) then
-                call jacobi_smooth(A_col, b, x0, x)
+                call jacobi_smooth(A_col, b%data, x0%data, x%data)
             elseif(smooth_type == 2) then
-                call GS_smooth(A_col, b, x0, x)
+                call GS_smooth(A_col, b%data, x0%data, x%data)
             end if
             
             ! compute residue
             res_old = res
             r = b
-            call AddMultMV(-1d0, A_col, x, r)
+            call AddMultMV(-1d0, A_col, x, 1d0, r)
             ! res = sqrt(sum(r**2))
-            res = maxval(abs(r))
+            res = r%Norm()
             
             ! output residue
             rate = res/res_old

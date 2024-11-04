@@ -38,7 +38,7 @@ subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
     ! initial residue
     call r%Init(b%size)
     r = b
-    call AddMultMV(-1d0, A, x, r)
+    call AddMultMV(-1d0, A, x, 1d0, r)
     res = r%Norm()
     
     if(present(writeunit)) then
@@ -61,7 +61,7 @@ subroutine Smooth(A, b, x, rtol, max_steps, smoother, writeunit)
         ! compute residue
         res_old = res
         r = b
-        call AddMultMV(-1d0, A, x, r)
+        call AddMultMV(-1d0, A, x, 1d0, r)
         res = r%Norm()
         
         ! output residue
@@ -87,7 +87,7 @@ subroutine Jacobi_smooth(A, b, x)
     
     integer :: i_nz, i_row
     integer :: row, col
-    real(8), parameter :: omega = 1d0
+    real(8), parameter :: omega = 2d0/3d0
     
     call diag%Init(A%N_col)
     call x_old%Init(x%size)

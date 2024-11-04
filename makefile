@@ -54,6 +54,11 @@ $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.f90
 
 # --- targets --------------------------------------------------------
 
+all: $(UMFPACK_LIB) $(LIBFFEM)
+
+$(UMFPACK_LIB):
+	cd $(UMFPACK_DIR) && make && cd -
+
 $(LIBFFEM): ${OBJECTS}
 	ar rcs $(LIB_DIR)/$@ $^
 
@@ -61,3 +66,4 @@ $(LIBFFEM): ${OBJECTS}
 clean:
 	@rm -f $(OBJECT_DIR)/*.o $(MOD_DIR)/*.mod $(BIN_DIR)/* lib/*.a
 	@touch $(BIN_DIR)/.gitkeep
+	cd $(UMFPACK_DIR) && make clean && cd -

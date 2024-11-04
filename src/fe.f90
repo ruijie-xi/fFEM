@@ -186,5 +186,26 @@ contains
             stop
         end select
     end subroutine BasisLocal2D
+    
+    ! Find the location of a degree of freedom
+    ! Lagrangian bases are supported
+    subroutine FindDofLocation(Th, Vh, i_dof, pt, dim)
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_dof
+        real(8), dimension(DIM__), intent(out) :: pt
+        integer, intent(out) :: dim
+        
+        select case (Vh%basis_type)
+        case (DOF_P1)
+            call FindDofLocation_P1(Th, i_dof, pt, dim)
+        case (DOF_P2)
+            call FindDofLocation_P2(Th, i_dof, pt, dim)
+        case default
+            print *, 'FindDofLocation: Only Lagrangian bases are supported'
+            stop
+        end select
+        
+    end subroutine
 
 end module fe

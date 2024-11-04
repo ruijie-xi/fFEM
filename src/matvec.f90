@@ -605,21 +605,30 @@ contains
 
     end subroutine
     
-    ! y += alpha*A*x
-    subroutine AddMultMV(alpha, A, x, y) 
+    ! y = alpha*A*x + b y
+    subroutine AddMultMV(alpha, A, x, b, y) 
         implicit none
         real(8), intent(in) :: alpha
         type(MATRIX_COLUMN), intent(in) :: A
-        type(VECTOR), intent(in) :: x
+        type(VECTOR), intent(inout) :: x
+        real(8), intent(in) :: b
         type(VECTOR), intent(inout) :: y
 
         integer :: i, j
+        
+        type(VECTOR) :: x_temp 
+        
+        call x_temp%Init(x%size)
+        x_temp%data = x%data
+        
+        y%data = y%data*b
 
         do j = 1, A%N_col
             do i = A%col_ptr(j), A%col_ptr(j+1)-1
-                y%data(A%row_idx(i)) = y%data(A%row_idx(i)) + alpha*A%val(i)*x%data(j)
+                y%data(A%row_idx(i)) = y%data(A%row_idx(i)) + alpha*A%val(i)*x_temp%data(j)
             end do
         end do
+        
 
     end subroutine
 

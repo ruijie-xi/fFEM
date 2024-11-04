@@ -127,6 +127,7 @@ module settings
         procedure :: Init => VECTOR_Init
         procedure :: Norm => VECTOR_normInf
         procedure :: Reset => VECTOR_Reset
+        procedure :: Print => VECTOR_Print
         
         procedure, pass(self) :: AddVector => VECTOR_Add_vector
         procedure, pass(self) :: AddScalar => VECTOR_Add_scalar
@@ -229,6 +230,16 @@ contains
         
         self%data = self%data + a
     end subroutine VECTOR_Add_scalar
+    
+    subroutine VECTOR_Print(self)
+        class(VECTOR), intent(in) :: self
+        
+        integer :: i
+        
+        do i = 1, self%size
+            write(*,*) "i = ", i, "data = ", self%data(i)
+        end do
+    end subroutine VECTOR_Print
     
     
 end module settings

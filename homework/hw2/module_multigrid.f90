@@ -1,4 +1,4 @@
-module module_twogrid
+module module_multigrid
     use settings
     use module_smoother
     use solver_umfpack2
@@ -28,7 +28,7 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
     
     ! residue
     type(VECTOR) :: r
-    real(8) :: res, res_old, rate
+    real(8) :: res, res_old, rate, res0
     
     integer :: i_step, i
     
@@ -36,8 +36,9 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
     
     ! initial residue
     r = b
-    call AddMultMV(-1d0, Mats(n_level), x, r)
-    res = r%Norm()    
+    call AddMultMV(-1d0, Mats(n_level), x, 1d0, r)
+    res = r%Norm()
+    res0 = res
     
     if(.not. present(print_screen)) print_screen = .true.
     if(print_screen) then
@@ -62,7 +63,7 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
         ! output residue
         res_old = res
         r = b
-        call AddMultMV(-1d0, Mats(n_level), x, r)
+        call AddMultMV(-1d0, Mats(n_level), x, 1d0, r)
         res = r%Norm()
         rate = res/res_old
         
@@ -74,7 +75,7 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
             write(writeunit,*) i_step, res
         end if
                 
-        if(res<rtol) exit
+        if(res/res0<rtol) exit
         
     end do
 end subroutine solver_multigrid
@@ -97,10 +98,7 @@ fes_list, Trs, b, x, smoother, n_pre, n_post)
     type(VECTOR) :: r, r_coarse, e_coarse, e
     
     if(i_level==1) then
-        do i_smooth = 1, 100
-            call Jacobi_smooth(Mats(i_level), b, x)
-        end do
-        ! call SolverSolveUMFPACK2(Mats(i_level), b, x)
+        call SolverSolveUMFPACK2(Mats(i_level), b, x)
         return
     end if
     
@@ -123,11 +121,8 @@ fes_list, Trs, b, x, smoother, n_pre, n_post)
 
     ! compute residue
     r = b
-    call AddMultMV(-1d0, Mats(i_level), x, r)
-    
-    call PlotFunction(x, mesh_list(i_level), fes_list(i_level), "pre_solution.vtk")
-    call PlotFunction(r, mesh_list(i_level), fes_list(i_level), "pre_residual.vtk")
-        
+    call AddMultMV(-1d0, Mats(i_level), x, 1d0, r)
+            
     ! restrict to coarse grid
     call Trs(i_level-1)%FineToCoarse(r, r_coarse)
             
@@ -137,10 +132,7 @@ fes_list, Trs, b, x, smoother, n_pre, n_post)
     call Trs(i_level-1)%CoarseToFine(e_coarse, e)
                 
     ! update x
-    call x%AddVector(e)
-    
-    call PlotFunction(x, mesh_list(i_level), fes_list(i_level), "cgc_solution.vtk")
-    
+    call x%AddVector(e)    
     
     ! post-smoothing
     do i_smooth = 1, n_post
@@ -157,6 +149,5 @@ fes_list, Trs, b, x, smoother, n_pre, n_post)
 end subroutine cycle
 
     
-end module module_twogrid
-
+end module module_multigrid
 
