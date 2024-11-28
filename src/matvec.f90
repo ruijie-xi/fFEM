@@ -267,6 +267,8 @@ contains
             A_column%val(A_column%col_ptr(col):A_column%col_ptr(col+1)-1) = A_column%val(A_column%col_ptr(col)+index-1)
             deallocate(index)
         end do
+        
+        call MatrixColumnTrim(A_column)
 
     end subroutine
 
@@ -511,6 +513,28 @@ contains
         end do
 
     end subroutine
+    
+    subroutine MatrixColumnPrintToFile(A, filename)
+        implicit none
+        type(MATRIX_COLUMN), intent(in) :: A
+        character(len=*), intent(in) :: filename
+
+        integer :: i_col
+        integer :: i_nz,i
+        integer :: unit
+
+        open(newunit=unit, file=filename, status='unknown')
+
+        i_nz = 0
+
+        do i_col = 1, A%N_col
+            do i = A%col_ptr(i_col), A%col_ptr(i_col+1)-1
+                i_nz = i_nz + 1
+                write(unit,"(i9,i9,E16.8)") A%row_idx(i), i_col, A%val(i)
+            end do
+        end do
+
+    end subroutine
 
     ! remove zero elements in a matrix in column format
     subroutine MatrixColumnTrim(A)
@@ -628,8 +652,31 @@ contains
                 y%data(A%row_idx(i)) = y%data(A%row_idx(i)) + alpha*A%val(i)*x_temp%data(j)
             end do
         end do
-        
+    end subroutine
+    
+    ! y = alpha*A^T *x + b y
+    subroutine AddMultTransposeMV(alpha, A, x, b, y) 
+        implicit none
+        real(8), intent(in) :: alpha
+        type(MATRIX_COLUMN), intent(in) :: A
+        type(VECTOR), intent(inout) :: x
+        real(8), intent(in) :: b
+        type(VECTOR), intent(inout) :: y
 
+        integer :: i, j
+        
+        type(VECTOR) :: x_temp 
+        
+        call x_temp%Init(x%size)
+        x_temp%data = x%data
+        
+        y%data = y%data*b
+
+        do j = 1, A%N_col
+            do i = A%col_ptr(j), A%col_ptr(j+1)-1
+                y%data(j) = y%data(j) + alpha*A%val(i)*x_temp%data(A%row_idx(i))
+            end do
+        end do
     end subroutine
 
 

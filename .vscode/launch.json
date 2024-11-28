@@ -5,8 +5,8 @@
             "name": "test_multigrid",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileWorkspaceFolder}/homework/hw2/test_multigrid",    // <-- Change this
-            "args": ["8","16"],                               // <-- Change this
+            "program": "${fileWorkspaceFolder}/homework/final/test_multigrid",    // <-- Change this
+            "args": ["2","2","4","10","10","3","output/test/test.txt","1.0","0.01","1.0"],                               // <-- Change this
             "stopAtEntry": false,
             "cwd": "${fileWorkspaceFolder}/homework/hw2",              // <-- And maybe this
             "environment": [],
