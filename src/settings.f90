@@ -15,7 +15,7 @@ module settings
     integer, parameter :: DOF_DG1 = 11
     integer, parameter :: DOF_Q0 = 100
     integer, parameter :: DOF_Q1 = 101
-    ! integer, parameter :: DOF_Q2 = 102
+    integer, parameter :: DOF_Q2 = 102
     integer, parameter :: DOF_QuadNedelec1 = 111
     integer, parameter :: DOF_QuadRT1 = 121
     integer, parameter :: DOF_QuadRT2 = 122
@@ -27,10 +27,13 @@ module settings
     integer, parameter :: DERIV_DXX = 3
     integer, parameter :: DERIV_DXY = 4
     integer, parameter :: DERIV_DYY = 5
+    integer, parameter :: DERIV_DIV = 6
 
     ! Norm type
     integer, parameter :: NORM_L2 = 0
     integer, parameter :: NORM_H1 = 1
+    integer, parameter :: NORM_HDIV = 2
+    integer, parameter :: NORM_DIV = 3
 
     ! Gauss type
     integer, parameter :: LinePt1 = 1
@@ -123,123 +126,10 @@ module settings
         integer :: size
         real(8), dimension(:), allocatable :: data
         
-    contains 
-        procedure :: Init => VECTOR_Init
-        procedure :: Norm => VECTOR_normInf
-        procedure :: Reset => VECTOR_Reset
-        procedure :: Print => VECTOR_Print
-        
-        procedure, pass(self) :: AddVector => VECTOR_Add_vector
-        procedure, pass(self) :: AddScalar => VECTOR_Add_scalar
-        
     end type VECTOR
-    
-    interface assignment(=)
-        module procedure VECTOR_Assign_vector
-        module procedure VECTOR_Assign_scalar
-    end interface assignment(=)
 
     ! some useful constants
     real(8), parameter :: m_pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
-    
-contains
-
-    ! Initialize vector
-    subroutine VECTOR_Init(self, n)
-        class(VECTOR) :: self
-        integer, intent(in) :: n
-        
-        if(allocated(self%data)) write(*,*) "Warning: VECTOR_Init: vector is already initialized"
-        
-        self%size = n
-        allocate(self%data(n))
-        self%data = 0d0
-    end subroutine VECTOR_Init
-    
-    subroutine VECTOR_Reset(self, n)
-        class(VECTOR) :: self
-        integer, intent(in) :: n
-        
-        if(allocated(self%data)) deallocate(self%data)
-        
-        self%size = n
-        allocate(self%data(n))
-        self%data = 0d0
-    end subroutine VECTOR_Reset
-    
-    function VECTOR_normL2(self) result(norm)
-        class(VECTOR) :: self
-        real(8) :: norm
-        norm = sqrt(sum(self%data**2)/self%size)
-    end function VECTOR_normL2 
-    
-    function VECTOR_normInf(self) result(norm)
-        class(VECTOR) :: self
-        real(8) :: norm
-        norm = maxval(abs(self%data))
-    end function VECTOR_normInf 
-    
-    
-    subroutine VECTOR_Assign_vector(self, other)
-        class(VECTOR), intent(out) :: self
-        class(VECTOR), intent(in) :: other
-        
-        self%size = other%size
-        
-        if(self%size /= other%size) then
-            deallocate(self%data)
-            allocate(self%data(other%size))
-        end if
-        
-        self%data = other%data
-    end subroutine VECTOR_Assign_vector
-    
-    subroutine VECTOR_Assign_scalar(self, scalar)
-        class(VECTOR), intent(out) :: self
-        real(8), intent(in) :: scalar
-        
-        if(allocated(self%data)) then
-            self%data = scalar
-        else
-            write(*,*) "Error: VECTOR_Assign_scalar: vector is not initialized"
-            error stop
-        end if
-    end subroutine VECTOR_Assign_scalar
-    
-    subroutine VECTOR_Add_vector(self, other, a)
-        class(VECTOR), intent(inout) :: self
-        class(VECTOR), intent(in) :: other
-
-        real(8), intent(in), optional :: a
-        
-        if(self%size /= other%size) then
-            write(*,*) "Error: size mismatch in VECTOR_Add_vector"
-            stop
-        end if
-        
-        if (present(a)) then
-            self%data = self%data + a*other%data
-        else
-            self%data = self%data + other%data
-        end if
-    end subroutine VECTOR_Add_vector
-    
-    subroutine VECTOR_Add_scalar(self, a)
-        class(VECTOR), intent(inout) :: self
-        real(8), intent(in) :: a
-        
-        self%data = self%data + a
-    end subroutine VECTOR_Add_scalar
-    
-    subroutine VECTOR_Print(self)
-        class(VECTOR), intent(in) :: self
-        
-        integer :: i
-        
-        do i = 1, self%size
-            write(*,*) "i = ", i, "data = ", self%data(i)
-        end do
-    end subroutine VECTOR_Print
     
     
 end module settings

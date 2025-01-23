@@ -11,7 +11,7 @@ PROGRAM test_interpolation
 
     type(mesh2D) :: Th
     type(fespace) :: Vh
-    real(8), allocatable, dimension(:) :: u
+    type(vector) :: u 
     procedure(func) :: test_func
 
     real(8) :: value
@@ -24,7 +24,7 @@ PROGRAM test_interpolation
     real(8), dimension(:,:), allocatable :: nodes
 
     integer, parameter :: mesh_type = MESH_QUAD
-    integer, parameter :: DOF_type = DOF_QuadRT1
+    integer, parameter :: DOF_type = DOF_QuadRT2
     integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: fe_dim = 2
 
@@ -42,15 +42,15 @@ PROGRAM test_interpolation
         call MeshInit(elems,nodes,Th)
     
         call fespaceInit(Vh, Th, DOF_type, fe_dim)
-        call Interpolate(u, test_func, Th,Vh)
+        call Interpolate(u, test_func, Th, Vh)
         call ComputeIntegral(u, Th, Vh, Gauss_type, values)
         write(*,*) "Integral", values
         call ComputeNorm(u, Th, Vh, NORM_L2, Gauss_type, value)
         write(*,*) "Norm L2 ", value
         call ComputeError(test_func, u, Th, Vh, NORM_L2, Gauss_type, value)
         write(*,*) "Error L2", value
-        call ComputeError(test_func, u, Th, Vh, NORM_H1, Gauss_type, value)
-        write(*,*) "Error H1", value
+        call ComputeError(test_func, u, Th, Vh, NORM_HDIV, Gauss_type, value)
+        write(*,*) "Error Hdiv", value
 
         call fespaceFree(Vh)
         call MeshFree(Th)
@@ -68,18 +68,23 @@ subroutine test_func(x,f,deriv_type)
     real(8), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
-    if (.not. allocated(f)) allocate(f(2))
-
     select case(deriv_type)
     case(DERIV_NONE)
+        if (.not. allocated(f)) allocate(f(2))
         f(1) = x(1) + x(2)*x(2)
         f(2) = exp(x(1) + x(2)*x(2))
     case(DERIV_DX)
+        if (.not. allocated(f)) allocate(f(2))
         f(1) = 1d0
         f(2) = exp(x(1) + x(2)*x(2))
     case(DERIV_DY)
+        if (.not. allocated(f)) allocate(f(2))
         f(1) = 2d0*x(2)
         f(2) = exp(x(1) + x(2)*x(2))*2d0*x(2)
+    case(DERIV_DIV)
+        if (.not. allocated(f)) allocate(f(1))
+        f(1) = 1d0 + exp(x(1) + x(2)*x(2))*2d0*x(2)
+
     end select
     ! f(1) = exp(x(1) + x(2)**2d0)
 end subroutine test_func

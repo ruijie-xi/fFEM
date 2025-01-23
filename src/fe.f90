@@ -6,9 +6,11 @@ module fe
     use fespace_DG1
     use fespace_Q0
     use fespace_Q1
+    use fespace_Q2
     use fespace_P2
     use fespace_QuadNedelec1
     use fespace_QuadRT1
+    use fespace_QuadRT2
     implicit none
     
 contains
@@ -27,6 +29,8 @@ contains
                 call fespaceInit_Q0(Vh,Th,dim)
             case(DOF_Q1)
                 call fespaceInit_Q1(Vh,Th,dim)
+            case(DOF_Q2)
+                call fespaceInit_Q2(Vh,Th,dim)
             case(DOF_P2)
                 call fespaceInit_P2(Vh,Th,dim)
             case(DOF_DG1)
@@ -35,6 +39,8 @@ contains
                 call fespaceInit_QuadNedelec1(Vh,Th,dim)
             case(DOF_QuadRT1)
                 call fespaceInit_QuadRT1(Vh,Th,dim)
+            case(DOF_QuadRT2)
+                call fespaceInit_QuadRT2(Vh,Th,dim)
         end select
 
     end subroutine fespaceInit
@@ -49,17 +55,15 @@ contains
     subroutine Interpolate(u, fun, Th, Vh)
         type(fespace), intent(in) :: Vh
         type(mesh2D), intent(in) :: Th
-        real(8), intent(out), dimension(:), allocatable :: u
+        type(vector), intent(out) :: u
         procedure(func) :: fun
 
         integer :: i_dof
         
-        if (allocated(u)) deallocate(u)
-        allocate(u(Vh%N_DOF))
-        u = 0.d0
+        call VectorReset(u, Vh%N_DOF)
         
         do i_dof = 1, Vh%N_DOF
-            u(i_dof) = ComputeDof(fun, Th, Vh, i_dof)
+            u%data(i_dof) = ComputeDof(fun, Th, Vh, i_dof)
         end do
     end subroutine Interpolate
 
@@ -79,6 +83,8 @@ contains
             call ComputeDof_Q0(result,fun,Th,Vh,i_dof)
         case(DOF_Q1)
             call ComputeDof_Q1(result,fun,Th,i_dof)
+        case(DOF_Q2)
+            call ComputeDof_Q2(result,fun,Th,i_dof)
         case(DOF_P2)
             call ComputeDof_P2(result,fun,Th,i_dof)
         case(DOF_DG1)
@@ -87,6 +93,8 @@ contains
             call ComputeDof_QuadNedelec1(result,fun,Th,i_dof)
         case(DOF_QuadRT1)
             call ComputeDof_QuadRT1(result,fun,Th,i_dof)
+        case(DOF_QuadRT2)
+            call ComputeDof_QuadRT2(result,fun,Th,i_dof)
         case default
             print *, "Error: Unknown basis type"
             stop
@@ -112,7 +120,7 @@ contains
     end subroutine
 
     subroutine getLocalDof(u, Vh, i_elem, i_dim, local_dof)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, i_dim
         real(8), dimension(:), intent(out), allocatable :: local_dof
@@ -124,7 +132,7 @@ contains
         N_local_dof = Vh%N_local_basis
         allocate(local_dof(N_local_dof))
         call getLocalDofIndex(Vh, i_elem, i_dim, idx_local_dof)
-        local_dof = u(idx_local_dof)
+        local_dof = u%data(idx_local_dof)
     end subroutine
 
     subroutine getEdgeDofIndex(Th, Vh, i_edge, dof_index)
@@ -138,6 +146,8 @@ contains
             call getEdgeDofIndex_P1(Th, Vh, i_edge, dof_index)
         case (DOF_Q1)
             call getEdgeDofIndex_Q1(Th, Vh, i_edge, dof_index)
+        case (DOF_Q2)
+            call getEdgeDofIndex_Q2(Th, Vh, i_edge, dof_index)
         case (DOF_P2)
             call getEdgeDofIndex_P2(Th, Vh, i_edge, dof_index)
         case (DOF_DG1)
@@ -146,6 +156,8 @@ contains
             call getEdgeDofIndex_QuadNedelec1(Th, Vh, i_edge, dof_index)
         case (DOF_QuadRT1)
             call getEdgeDofIndex_QuadRT1(Th, Vh, i_edge, dof_index)
+        case (DOF_QuadRT2)
+            call getEdgeDofIndex_QuadRT2(Th, Vh, i_edge, dof_index)
         case default
             print *, "Error: Unknown basis type"
             stop
@@ -173,6 +185,8 @@ contains
             call BasisLocalQ0(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_Q1)
             call BasisLocalQ1(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_Q2)
+            call BasisLocalQ2(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_P2)
             call BasisLocalP2(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_DG1)
@@ -181,6 +195,8 @@ contains
             call BasisLocalQuadNedelec1(refpts, Th, Vh, i_elem, deriv_type, result)
         case (DOF_QuadRT1)
             call BasisLocalQuadRT1(refpts, Th, Vh, i_elem, deriv_type, result)
+        case (DOF_QuadRT2)
+            call BasisLocalQuadRT2(refpts, Th, Vh, i_elem, deriv_type, result)
         case default
             print *, 'BasisLocal2D: Unknown basis type'
             stop

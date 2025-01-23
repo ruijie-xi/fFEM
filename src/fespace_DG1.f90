@@ -55,7 +55,7 @@ subroutine getEdgeDofIndex_DG1(Th, Vh, i_edge, dof_index)
 
     integer :: i_dim,i_elem,i_edge_idx
 
-    i_elem = Th%EdgeElemConn(2,i_edge)
+    i_elem = abs(Th%EdgeElemConn(2,i_edge))
     i_edge_idx = Th%EdgeIdxInElem(2,i_edge)
     
     allocate(dof_index(Vh%dim))

@@ -8,7 +8,7 @@ subroutine DirichletBC(A, b, Th, Vh, bndy_func)
     use matvec
     use fe
     type(MATRIX_TRIPLET) :: A
-    real(8), dimension(:) :: b
+    type(vector) :: b
     type(mesh2D) :: Th
     type(fespace) :: Vh
     procedure(func) :: bndy_func
@@ -26,13 +26,13 @@ subroutine DirichletBC(A, b, Th, Vh, bndy_func)
         if (Th%BdryMarker(i_bdry) == 0) then
             call getEdgeDofIndex(Th, Vh, i_edge, dof_index)
             do i_dof = 1,size(dof_index)
-                call ComputeDof(DbndyVal(1), bndy_func, Th, Vh, dof_index(i_dof))
+                DbndyVal(1) = ComputeDof(bndy_func, Th, Vh, dof_index(i_dof))
                 ind = dof_index(i_dof)
                 x(1) = large
                 call MatrixTripletAddValues(A, ind, ind, x)
                 
                 x(1) = DbndyVal(1)*large
-                b(ind(1)) = b(ind(1))+x(1)
+                b%data(ind(1)) = b%data(ind(1))+x(1)
             end do
         end if
     end do
@@ -54,7 +54,6 @@ program test_possion
     use memory_usage
     use my_module
     use solver_umfpack2
-    use solver_petsc
     
     implicit none
 
@@ -67,12 +66,11 @@ program test_possion
     ! fe space
     type(fespace) :: Vh
     integer, parameter :: mesh_type = MESH_QUAD
-    integer, parameter :: DOF_type = DOF_Q1
+    integer, parameter :: DOF_type = DOF_Q2
     integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: Gauss_type_bdry = LinePt2
     
     ! functions
-    real(8), allocatable, dimension(:) :: u
     procedure(func) :: u_func, rhs_func, one_func, NeumannBdry_func, g_func
 
     ! timer
@@ -84,7 +82,8 @@ program test_possion
     ! assemble matrices
     integer, dimension(:,:), allocatable :: assemble_info
     type(MATRIX_TRIPLET) :: A
-    real(8), dimension(:), allocatable :: b,x
+    type(vector) :: x
+    type(vector) :: b
     real(8) :: L2error, H1error
     integer :: RSS
 
@@ -115,8 +114,6 @@ program test_possion
 
     ! assemble rhs and matrix
     call MatrixTripletInit(A, Vh%N_DOF, Vh%N_DOF, 5*Th%N_elem*Vh%N_local_basis*Vh%N_local_basis)
-    allocate(b(Vh%N_DOF))
-    b=0d0
     call timer_start()
     allocate(assemble_info(4,5))
     assemble_info(1,:) = (/1, 1, DERIV_DX, 1, DERIV_DX/)
@@ -125,6 +122,8 @@ program test_possion
     assemble_info(4,:) = (/1, 2, DERIV_DY, 2, DERIV_DY/)
     call AssembleMatrixElement(one_func, [1d0,1d0,1d0,1d0], Th, Vh, 0, Vh, 0, assemble_info, Gauss_type, A)
     deallocate(assemble_info)
+    
+    call VectorInit(b, Vh%N_DOF)
     allocate(assemble_info(2,3))
     assemble_info(1,:) = (/1, 1, DERIV_NONE/)
     assemble_info(2,:) = (/2, 2, DERIV_NONE/)
@@ -148,9 +147,13 @@ program test_possion
     write(*,*) "Dirichlet Done. Time taken = ", t_test
 
     ! solve the linear system
-    allocate(x(Vh%N_DOF))
+    call VectorInit(x, Vh%N_DOF)
     call timer_start()
-    call SolverSolvePETSC(A, b, x)
+    block
+        type(MATRIX_COLUMN) :: A_col
+        call MatrixTriplet2Column(A, A_col)
+        call SolverSolveUMFPACK2(A_col, b, x)
+    end block
     call timer_end(t_test)
     write(*,*) "Solve Done. Time taken = ", t_test
     
@@ -170,7 +173,7 @@ subroutine rhs_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
     real(8), parameter :: pi = 3.14159265358979323846264d0
 
@@ -187,7 +190,7 @@ subroutine u_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
     real(8), parameter :: pi = 3.14159265358979323846264d0
 
@@ -210,7 +213,7 @@ subroutine one_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
     if (.not. allocated(f)) allocate(f(1))
@@ -225,7 +228,7 @@ subroutine NeumannBdry_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
     if (.not. allocated(f)) allocate(f(1))
@@ -240,7 +243,7 @@ subroutine g_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
     if (.not. allocated(f)) allocate(f(2))

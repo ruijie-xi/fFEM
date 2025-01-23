@@ -15,8 +15,8 @@ contains
 
     subroutine SolverSolvePETSC(A, b, x)
         type(MATRIX_TRIPLET) :: A
-        real(8), dimension(:) :: b
-        real(8), dimension(:) :: x
+        type(vector), intent(inout) :: b
+        type(vector), intent(inout) :: x
 
         type(MATRIX_COLUMN) :: A_column
 
@@ -31,8 +31,8 @@ contains
 
         call PetscInitialize("input/petsc_options.dat", ierr)
         call CreateMat(matA, A%N_row, A%N_col, ierr)
-        call CreateVec(vecb, size(b), ierr)
-        call CreateVec(vecx, size(x), ierr)
+        call CreateVec(vecb, b%size, ierr)
+        call CreateVec(vecx, x%size, ierr)
         call CreateSolver(ksp, matA, matA, ierr)
 
         call MatrixTriplet2Column(A, A_column)
@@ -46,7 +46,7 @@ contains
 
         call VecGetArrayF90(vecx, xx_v, ierr)
 
-        x = xx_v
+        x%data = xx_v
 
         call PetscFinalize(ierr)
 
@@ -68,14 +68,14 @@ contains
 
     subroutine Vector2PETSC(b, vecb, ierr)
         implicit none
-        real(8), dimension(:) :: b
+        type(vector), intent(in) :: b
         Vec :: vecb
         integer(4) :: ierr
 
         PetscScalar, pointer :: b_v(:)
 
         call VecGetArrayF90(vecb, b_v, ierr)
-        b_v = b
+        b_v = b%data
         call VecRestoreArrayF90(vecb, b_v, ierr)
     end subroutine Vector2PETSC
 

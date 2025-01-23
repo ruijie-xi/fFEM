@@ -642,10 +642,10 @@ contains
         
         type(VECTOR) :: x_temp 
         
-        call x_temp%Init(x%size)
+        call VectorInit(x_temp, x%size)
         x_temp%data = x%data
         
-        y%data = y%data*b
+        call VectorAddMultScalar(y, b, 0d0)
 
         do j = 1, A%N_col
             do i = A%col_ptr(j), A%col_ptr(j+1)-1
@@ -667,10 +667,10 @@ contains
         
         type(VECTOR) :: x_temp 
         
-        call x_temp%Init(x%size)
-        x_temp%data = x%data
+        call VectorInit(x_temp, x%size)
+        call VectorCopy(x_temp, x)
         
-        y%data = y%data*b
+        call VectorAddMultScalar(y, b, 0d0)
 
         do j = 1, A%N_col
             do i = A%col_ptr(j), A%col_ptr(j+1)-1
@@ -678,7 +678,90 @@ contains
             end do
         end do
     end subroutine
+    
+    subroutine VectorInit(vec,n)
+        type(VECTOR), intent(out) :: vec
+        integer, intent(in) :: n
+        
+        vec%size = n
+        allocate(vec%data(n))
+        vec%data = 0d0 
+    end subroutine 
+    
+    subroutine VectorReset(vec, n)
+        type(VECTOR), intent(inout) :: vec
+        integer, intent(in) :: n
+        
+        if(allocated(vec%data)) deallocate(vec%data)
+        
+        vec%size = n
+        allocate(vec%data(n))
+        vec%data = 0d0 
+    end subroutine
+    
+    function VectorNormL2(vec) result(norm)
+        type(VECTOR), intent(in) :: vec
+        real(8) :: norm
+        norm = sqrt(sum(vec%data**2)/vec%size)
+    end function VectorNormL2
+    
+    function VectorNormLinf(vec) result(norm)
+        type(VECTOR), intent(in) :: vec
+        real(8) :: norm
+        norm = maxval(abs(vec%data))
+    end function VectorNormLinf
+    
+    subroutine VectorCopy(vec_out, vec_in)
+        type(VECTOR), intent(inout) :: vec_out
+        type(VECTOR), intent(in) :: vec_in
+        
+        if(vec_out%size /= vec_in%size) then
+            call VectorReset(vec_out, vec_in%size)
+        end if
+        
+        vec_out%data = vec_in%data
+    end subroutine VectorCopy
+    
+    subroutine VectorAssignScalar(vec, scalar)
+        type(VECTOR), intent(inout) :: vec
+        real(8), intent(in) :: scalar
+        
+        if(allocated(vec%data)) then
+            vec%data = scalar
+        else
+            write(*,*) "Error: VectorAssignScalar: vector is not initialized"
+            error stop
+        end if
+    end subroutine VectorAssignScalar
+    
+    ! u = a*u + b*v
+    subroutine VectorAddVector(u, a, v, b)
+        type(VECTOR), intent(inout) :: u
+        type(VECTOR), intent(in) :: v
+        real(8), intent(in) :: a, b
+        
+        if(u%size /= v%size) then
+            write(*,*) "Error: size mismatch in VectorAddVector"
+            stop
+        end if
+        
+        u%data = a*u%data + b*v%data
+    end subroutine VectorAddVector
 
-
+    subroutine VectorPrint(vec)
+        type(VECTOR), intent(in) :: vec
+        integer :: i
+        do i = 1, vec%size
+            write(*,*) "i = ", i, "data = ", vec%data(i)
+        end do
+    end subroutine VectorPrint
+    
+    ! vec = a*vec + b
+    subroutine VectorAddMultScalar(vec, a, b)
+        type(VECTOR), intent(inout) :: vec
+        real(8), intent(in) :: a, b
+        
+        vec%data = a*vec%data + b
+    end subroutine VectorAddMultScalar
     
 end module matvec

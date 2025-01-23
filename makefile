@@ -22,6 +22,7 @@ OBJECT_FILES = memory_usage.o \
 		readmeshfile.o \
 		quicksort.o \
 		settings.o \
+		geometry.o \
 		matvec.o \
 		mesh_generator.o \
 		mesh.o\
@@ -31,8 +32,10 @@ OBJECT_FILES = memory_usage.o \
 		fespace_P1.o \
 		fespace_Q0.o \
 		fespace_Q1.o \
+		fespace_Q2.o \
 		fespace_P2.o \
 		fespace_QuadNedelec1.o \
+		fespace_QuadRT2.o \
 		fespace_QuadRT1.o \
 		fe.o \
 		fe_utils.o \
@@ -54,6 +57,8 @@ $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.f90
 
 # --- targets --------------------------------------------------------
 
+default: $(LIBFFEM)
+
 all: $(UMFPACK_LIB) $(LIBFFEM)
 
 $(UMFPACK_LIB):
@@ -62,8 +67,11 @@ $(UMFPACK_LIB):
 $(LIBFFEM): ${OBJECTS}
 	ar rcs $(LIB_DIR)/$@ $^
 
+clean-umfpack:
+	cd $(UMFPACK_DIR) && make clean && cd -
 
 clean:
 	@rm -f $(OBJECT_DIR)/*.o $(MOD_DIR)/*.mod $(BIN_DIR)/* lib/*.a
 	@touch $(BIN_DIR)/.gitkeep
-	cd $(UMFPACK_DIR) && make clean && cd -
+
+clean-all: clean clean-umfpack

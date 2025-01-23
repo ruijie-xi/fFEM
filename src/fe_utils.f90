@@ -9,7 +9,7 @@ contains
 
     ! Compute the integral of u over the domain
     subroutine ComputeIntegral(u, Th, Vh, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: Gauss_type
@@ -31,7 +31,7 @@ contains
 
     ! Compute different norms of u
     subroutine ComputeNorm(u, Th, Vh, norm_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: norm_type, Gauss_type
@@ -74,18 +74,28 @@ contains
         case(NORM_L2)
             result = 0d0;
             do i_elem = 1, Th%N_elem
-                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
                 result = result + val
             end do
             result = sqrt(result)
         case(NORM_H1)
             result = 0d0;
             do i_elem = 1, Th%N_elem
-                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
                 result = result + val
-                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_DX, Gauss_type, val)
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DX, Gauss_type, val)
                 result = result + val
-                call QuadError(fun, u%data, Th, Vh, i_elem, DERIV_DY, Gauss_type, val)
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DY, Gauss_type, val)
+                result = result + val
+            end do
+            result = sqrt(result)
+
+        case(NORM_HDIV)
+            result = 0d0;
+            do i_elem = 1, Th%N_elem
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                result = result + val
+                call QuadError(fun, u, Th, Vh, i_elem, DERIV_DIV, Gauss_type, val)
                 result = result + val
             end do
             result = sqrt(result)
@@ -99,7 +109,7 @@ contains
 
     ! On the i_elem th element, compute \|u\|^2_{L^2} or \|dxu\|^2_{L^2}
     subroutine QuadNorm(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, deriv_type, Gauss_type
@@ -119,7 +129,7 @@ contains
     end subroutine QuadNorm
 
     subroutine QuadError(fun, u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, deriv_type, Gauss_type
@@ -130,13 +140,18 @@ contains
         real(8), dimension(:), allocatable :: w
         real(8), dimension(:,:),allocatable :: fe_value,exact_value,err_value
         real(8), dimension(:), allocatable :: tmp
-        integer :: numpts,i_pt
+        integer :: numpts,i_pt,range_dim
 
         result = 0d0
         call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
         numpts = size(x, 2)
-        allocate(exact_value(Vh%dim,numpts))
-        allocate(err_value(Vh%dim,numpts))
+        
+        ! TODO: this is a hack, need to fix it
+        range_dim = Vh%dim
+        if(deriv_type == DERIV_DIV) range_dim = 1
+        
+        allocate(exact_value(range_dim,numpts))
+        allocate(err_value(range_dim,numpts))
 
         ! exact value
         do i_pt = 1, numpts
@@ -148,14 +163,14 @@ contains
         call FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, fe_value)
 
         err_value = (fe_value - exact_value)**2
-        result = sum(spread(w,1,Vh%dim)*err_value)
+        result = sum(spread(w,1,range_dim)*err_value)
         
         
     end subroutine QuadError
 
     ! On the i_elem th element, compute \int u dx
     subroutine QuadIntegral(u, Th, Vh, i_elem, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, Gauss_type
@@ -195,7 +210,7 @@ contains
         if(allocated(result)) deallocate(result)
         allocate(result(Vh%dim,numpts))
         do i_dim = 1,Vh%dim
-            call getLocalDof(u%data, Vh, i_elem, i_dim, local_u)
+            call getLocalDof(u, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 
     end function FEfunctionGetValue
@@ -203,7 +218,7 @@ contains
 
     ! Compute the value of the FE function u at the quadrature points of element i_elem
     subroutine FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, deriv_type, Gauss_type
@@ -212,16 +227,16 @@ contains
         real(8), dimension(:), allocatable :: local_u,w_ref
         real(8), dimension(:,:), allocatable :: x_ref
         real(8), dimension(:,:,:), allocatable :: basis_values
-        integer :: numpts,i_dim
-        
+        integer :: numpts,i_dim,range_dim
         
         call getGaussRefElement(Gauss_type, x_ref, w_ref)
         call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
 
         numpts = size(x_ref, 2)
         if(allocated(result)) deallocate(result)
-        allocate(result(Vh%dim,numpts))
-        do i_dim = 1,Vh%dim
+        range_dim = size(basis_values,1)
+        allocate(result(range_dim,numpts))
+        do i_dim = 1,range_dim
             call getLocalDof(u, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 
@@ -229,7 +244,7 @@ contains
 
     ! Compute the value of the FE function u at the quadrature points of i_le edge of element i_elem
     subroutine FEfunctionQuadValueLine(u, Th, Vh, i_elem, i_le, deriv_type, Gauss_type, result)
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
         type(mesh2D), intent(in) :: Th
         type(fespace), intent(in) :: Vh
         integer, intent(in) :: i_elem, deriv_type, Gauss_type, i_le
@@ -302,7 +317,7 @@ contains
             type(fespace), intent(in) :: Vh_trial, Vh_test
             procedure(func) :: coe_fun
             real(8), intent(out), dimension(:,:), allocatable :: localmat
-            real(8), intent(in), dimension(:) :: u
+            type(vector), intent(in) :: u
             type(fespace) :: Vh_u
             integer :: i_dim_u
             integer :: deriv_type_u
@@ -394,7 +409,7 @@ contains
         type(fespace), intent(in) ::  Vh_test, Vh_u
         procedure(func) :: coe_fun
         real(8), intent(out), dimension(:), allocatable :: localvec
-        real(8), dimension(:), intent(in) :: u
+        type(vector), intent(in) :: u
 
         ! Gauss quadrature
         real(8), dimension(:,:), allocatable :: x,x_ref

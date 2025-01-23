@@ -34,7 +34,7 @@ contains
         end if
 
         do i_elem = 1, Th%N_elem
-            call FEfunctionQuadValue(u%data, Th, Vh, i_elem, DERIV_NONE, Gauss_type, tmp)
+            call FEfunctionQuadValue(u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, tmp)
             node_countvalue(Th%ElemNodeConn(:,i_elem)) = node_countvalue(Th%ElemNodeConn(:,i_elem)) + 1
             node_value(:,Th%ElemNodeConn(:,i_elem)) = node_value(:,Th%ElemNodeConn(:,i_elem)) + tmp
         end do
