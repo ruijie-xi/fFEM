@@ -629,6 +629,24 @@ contains
 
     end subroutine
     
+    subroutine MatrixTripletPrintToFile(A, filename)
+        implicit none
+        type(MATRIX_TRIPLET), intent(in) :: A
+        character(len=*), intent(in) :: filename
+        
+        integer :: unit
+        integer :: i
+        
+        open(newunit=unit, file=filename, status='unknown')
+        
+        write(unit,*) "N_row: ",A%N_row, "N_col: ",A%N_col, "N_nz: ",A%N_nz, "actual_nnz: ",A%actual_nnz
+
+        do i = 1, A%actual_nnz
+            write(unit,"(i9,' (',i9,i9,'): ',E11.5)") i, A%row_idx(i), A%col_idx(i), A%val(i)
+        end do
+
+    end subroutine
+    
     ! y = alpha*A*x + b y
     subroutine AddMultMV(alpha, A, x, b, y) 
         implicit none
@@ -715,6 +733,11 @@ contains
         type(VECTOR), intent(inout) :: vec_out
         type(VECTOR), intent(in) :: vec_in
         
+        if (.not. allocated(vec_in%data)) then
+            write(*,*) "Error: Input vector is not initialized"
+            error stop
+        end if
+        
         if(vec_out%size /= vec_in%size) then
             call VectorReset(vec_out, vec_in%size)
         end if
@@ -742,7 +765,7 @@ contains
         
         if(u%size /= v%size) then
             write(*,*) "Error: size mismatch in VectorAddVector"
-            stop
+            error stop
         end if
         
         u%data = a*u%data + b*v%data
@@ -763,5 +786,11 @@ contains
         
         vec%data = a*vec%data + b
     end subroutine VectorAddMultScalar
+    
+    subroutine VectorFree(vec)
+        type(VECTOR), intent(inout) :: vec
+        if(allocated(vec%data)) deallocate(vec%data)
+        vec%size = 0
+    end subroutine VectorFree
     
 end module matvec

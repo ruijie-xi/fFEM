@@ -468,14 +468,16 @@ contains
     end subroutine CheckOrientation
 
 
-    subroutine AddBdryMarker(Th, fun, marker)
+    subroutine AddBdryMarker(Th, fun, marker, eps)
         type(mesh2D), intent(inout) :: Th
         procedure(func) :: fun
         integer,intent(in) :: marker
+        real(8), optional :: eps
 
         integer :: i_bdry, i_edge, i_node1, i_node2
         real(8),dimension(:),allocatable :: val1, val2
-        real(8),parameter :: eps = 1d-8
+        
+        if(.not.present(eps)) eps = 1d-8
 
         do i_bdry = 1,Th%N_bdryedge
             i_edge = Th%BdryEdge(i_bdry)

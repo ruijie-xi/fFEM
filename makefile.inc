@@ -1,5 +1,5 @@
 CF    = mpif90
-FOPT  = -O0 -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
+FOPT  = -O -cpp -dM -fimplicit-none -ffixed-line-length-none -g -Wall -fbacktrace -fcheck=all
 FOPT_LINK = -g
 
 UMFPACK_DIR = $(FFEMDIR)/3rdparty/UMFPACK_2.0

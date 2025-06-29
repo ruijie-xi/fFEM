@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "magnetic",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileWorkspaceFolder}/apps/magnetic/test_moving_exact",
+            "args": ["10","0.02"],
+            "stopAtEntry": false,
+            "cwd": "${fileWorkspaceFolder}/apps/magnetic",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+        },
+        {
             "name": "test_multigrid",
             "type": "cppdbg",
             "request": "launch",
