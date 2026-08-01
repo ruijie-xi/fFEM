@@ -1,14 +1,3 @@
-! Module for writing output as 
-! legacy VTK format
-!
-!
-! Author: Dr. Chennakesava Kadapa
-! Date  : 25-Oct-2017
-! Place : Swansea, UK
-!
-!
-!
-
 MODULE WriterVTK
     !   IMPLICIT NONE
 

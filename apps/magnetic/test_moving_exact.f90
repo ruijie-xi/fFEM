@@ -247,6 +247,8 @@ program test_moving_exact
     ! parameters of Gauss quadrature
     integer, parameter :: Gauss_type = QuadPt16
     integer, parameter :: Gauss_type_bdry = LinePt4
+    
+    logical :: first_step = .true.
 
     if(iargc() .ne. 2) then
         write(*,*) "Usage: ./test_moving_exact M dt"
@@ -270,24 +272,23 @@ program test_moving_exact
     read(arg,*) dt
     t = 0d0
     do while(t<Tend-1d-8)
-        ! Step 1: Get Lorentz force
-        ! call magnetic_lorentz(F)
-
-        ! Step 3: Solve diffusion equation, advance time
-        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func)
-
-        ! Step 4: Move mesh
-        t = t+0.5d0*dt
-        ! Calculate velocity at t+0.5*dt
-        ! Move the mesh from t to t+dt (leapfrog)
+        
+        ! Move mesh
         call getVelocity(u_func, u)
-        call MoveMesh(u, dt, nodes)
+        call MoveMesh(u, 0.5d0*dt, nodes)
         call magnetic_update(nodes)
         
-        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func)
+        ! Diffusion
+        call magnetic_diffusion(t, dt, g_func, f_func, first_step)
+        first_step = .false.
+        
+        ! Move mesh
+        t = t+0.5d0*dt
+        call getVelocity(u_func, u)
+        call MoveMesh(u, 0.5d0*dt, nodes)
+        call magnetic_update(nodes)
         
         t = t+0.5d0*dt
-        
     end do
 
     ! compute error

@@ -2,6 +2,7 @@ module fespace_QuadRT1
     use settings
     use tools, only: assert
     use mesh, only: getEdgeTangent,getEdgeLength,getEdgeNormal
+    use geometry, only: JacobianCoeffQuad,  ref_pts_edge_to_elem, ref_edge_normal
     use quadrature
     implicit none
     
@@ -29,30 +30,58 @@ subroutine ComputeDof_QuadRT1(result,fun,Th,i_dof)
     real(8), intent(out) :: result
     integer,intent(in) :: i_dof
 
-    integer :: i_edge,i_pt
-    real(8), dimension(2,2) :: vertices
-    real(8), dimension(:), allocatable :: w
-    real(8), dimension(:,:), allocatable :: x
+    integer :: i_edge,i_edge_in_elem, i_elem, i_pt
+    integer :: orientation
+    
+    integer, parameter :: Gauss_type_1d = LinePt4
+    integer, parameter :: Gauss_type_2d = QuadPt16
+    real(8), dimension(:), allocatable :: w_line_h
+    real(8), dimension(:,:), allocatable :: pts_line_h
+    real(8), dimension(:), allocatable :: w_line 
+    real(8), dimension(:,:), allocatable :: x_line
+    real(8), dimension(:,:), allocatable :: pts_elem_h
+    real(8), dimension(:), allocatable :: J11,J12,J21,J22
+    real(8), dimension(:), allocatable :: normal_hat
+    real(8), dimension(:,:), allocatable :: normal
+    real(8) :: length
+    
     real(8), dimension(:,:), allocatable :: val
     real(8), dimension(:), allocatable :: val_tmp
-    real(8), dimension(2) :: normal
-    real(8) :: length
-
+        
     i_edge = i_dof
-    vertices = Th%NodeCoord(:, Th%EdgeNodeConn(:, i_edge))
-
-    call getGaussQuadAnyLine(vertices, LinePt3, x, w)
-    allocate(val(2,size(x,2)))
-    do i_pt = 1, size(x,2)
-        call fun(x(:,i_pt), val_tmp, DERIV_NONE)
+    i_elem = abs(Th%EdgeElemConn(2,i_edge))
+    i_edge_in_elem = Th%EdgeIdxInElem(2,i_edge)
+    
+    orientation = 1
+    if(Th%ElemEdgeConn(i_edge_in_elem,i_elem)<0) orientation = -1
+    
+    call ref_edge_normal(Th%mesh_type, i_edge_in_elem, orientation, normal_hat)
+    
+    call getGaussQuadRefLine(Gauss_type_1d, pts_line_h, w_line_h) 
+    pts_line_h = pts_line_h*0.5d0 + 0.5d0
+    
+    call ref_pts_edge_to_elem(Th%mesh_type, i_edge_in_elem, pts_line_h, orientation, pts_elem_h)
+    
+    call JacobianCoeffQuad(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), pts_elem_h, J11,J12,J21,J22)
+    
+    allocate(normal(2,size(pts_elem_h,2)))
+    normal(1,:) = J22*normal_hat(1) - J21*normal_hat(2)
+    normal(2,:) = J11*normal_hat(2) - J12*normal_hat(1)
+    
+    call getEdgeLength(Th, i_edge, length)
+    
+    normal = normal/length 
+    
+    call getGaussQuadAnyLine(Th%NodeCoord(:,Th%EdgeNodeConn(:,i_edge)), Gauss_type_1d, x_line, w_line)
+    
+    allocate(val(2,size(x_line,2)))
+    do i_pt = 1, size(x_line,2)
+        call fun(x_line(:,i_pt), val_tmp, DERIV_NONE)
         val(:,i_pt) = val_tmp
     end do
-    call getEdgeNormal(Th, i_edge, normal)
-    call getEdgeLength(Th, i_edge, length)
-
-    result = sum(w*val(1,:)*normal(1) + w*val(2,:)*normal(2))/length
     
-
+    result = sum((val(1,:)*normal(1,:) + val(2,:)*normal(2,:))*w_line)
+    
 end subroutine ComputeDof_QuadRT1
 
 subroutine getEdgeDofIndex_QuadRT1(Th, Vh, i_edge, dof_index)
@@ -114,101 +143,53 @@ subroutine BasisLocalQuadRT1(refpts, Th, Vh, i_elem, deriv_type, result)
     integer, intent(in) :: i_elem, deriv_type
     real(8), intent(out), dimension(:,:,:), allocatable :: result
 
-    real(8), dimension(:,:,:),allocatable :: basis,basis_ref,basis_ref_dx,basis_ref_dy
-    real(8), dimension(:,:,:),allocatable :: basis_dx,basis_dy,basis_ref_dxh,basis_ref_dyh
-
-    real(8), dimension(2,4) :: vertices
     real(8), dimension(:), allocatable :: J11,J12,J21,J22,J
-
-    real(8), dimension(4) :: signedlength
-    real(8) :: arclength
-
     integer :: num_pts, num_basis, i
 
     num_basis = Vh%N_local_basis
     num_pts = size(refpts, 2) ! number of points in reference element
-    allocate(result(Vh%dim, Vh%N_local_basis, num_pts)) ! result is a 3D array
     
     ! Jacobian coefficients
-    vertices = Th%NodeCoord(:, Th%ElemNodeConn(:, i_elem))
-    call JacobianCoeffQuad(vertices, refpts, J11,J12,J21,J22)
+    call JacobianCoeffQuad(Th%NodeCoord(:, Th%ElemNodeConn(:, i_elem)), refpts, J11,J12,J21,J22)
     allocate(J(size(refpts,2)))
     J = J11*J22 - J12*J21
 
-    ! signed length
-    do i = 1,4
-        call getEdgeLength(Th, abs(Th%ElemEdgeConn(i,i_elem)), arclength)
-        if (Th%ElemEdgeConn(i,i_elem) < 0) then
-            signedlength(i) = -arclength
-        else
-            signedlength(i) = arclength
-        end if
-    end do
-
     select case (deriv_type)
     case (DERIV_NONE)
-        allocate(basis_ref(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis(Vh%dim, Vh%N_local_basis, num_pts))
-        call BasisReferenceQuadRT1(refpts, DERIV_NONE, basis_ref)
-
-        ! Piola transform
-        basis(1,:,:) = spread(J11,1,num_basis)*basis_ref(1,:,:)/spread(J,1,num_basis) &
-        + spread(J12,1,num_basis)*basis_ref(2,:,:)/spread(J,1,num_basis)
-        basis(2,:,:) = spread(J21,1,num_basis)*basis_ref(1,:,:)/spread(J,1,num_basis) &
-        + spread(J22,1,num_basis)*basis_ref(2,:,:)/spread(J,1,num_basis)
-
-        ! Transform to physical element
-        do i = 1,num_basis
-            result(:,i,:) = signedlength(i)*basis(:,i,:)
-        end do
         
-    case (DERIV_DX)
-        allocate(basis_ref_dxh(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_ref_dyh(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_ref_dx(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_dx(Vh%dim, Vh%N_local_basis, num_pts))
-
-        call BasisReferenceQuadRT1(refpts, DERIV_DX, basis_ref_dxh)
-        call BasisReferenceQuadRT1(refpts, DERIV_DY, basis_ref_dyh)
-        basis_ref_dx(1,:,:) = spread(J22,1,num_basis)*basis_ref_dxh(1,:,:)/spread(J,1,num_basis) &
-        - spread(J21,1,num_basis)*basis_ref_dyh(1,:,:)/spread(J,1,num_basis)
-        basis_ref_dx(2,:,:) = spread(J22,1,num_basis)*basis_ref_dxh(1,:,:)/spread(J,1,num_basis) &
-        - spread(J21,1,num_basis)*basis_ref_dyh(1,:,:)/spread(J,1,num_basis)
-
-        ! Piola transform
-        basis_dx(1,:,:) = spread(J11,1,num_basis)*basis_ref_dx(1,:,:)/spread(J,1,num_basis) &
-        + spread(J12,1,num_basis)*basis_ref_dx(2,:,:)/spread(J,1,num_basis)
-        basis_dx(2,:,:) = spread(J21,1,num_basis)*basis_ref_dx(1,:,:)/spread(J,1,num_basis) &
-        + spread(J22,1,num_basis)*basis_ref_dx(2,:,:)/spread(J,1,num_basis)
-
-        ! Transform to physical element
-        do i = 1,num_basis
-            result(:,i,:) = signedlength(i)*basis_dx(:,i,:)
-        end do
-
-    case (DERIV_DY)
-        allocate(basis_ref_dxh(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_ref_dyh(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_ref_dy(Vh%dim, Vh%N_local_basis, num_pts))
-        allocate(basis_dy(Vh%dim, Vh%N_local_basis, num_pts))
-
-        call BasisReferenceQuadRT1(refpts, DERIV_DX, basis_ref_dxh)
-        call BasisReferenceQuadRT1(refpts, DERIV_DY, basis_ref_dyh)
-        basis_ref_dy(1,:,:) = -spread(J12,1,num_basis)*basis_ref_dxh(1,:,:)/spread(J,1,num_basis) &
-        + spread(J11,1,num_basis)*basis_ref_dyh(1,:,:)/spread(J,1,num_basis)
-        basis_ref_dy(2,:,:) = -spread(J12,1,num_basis)*basis_ref_dxh(2,:,:)/spread(J,1,num_basis) &
-        + spread(J11,1,num_basis)*basis_ref_dyh(2,:,:)/spread(J,1,num_basis)
-
-        ! Piola transform
-        basis_dy(1,:,:) = spread(J11,1,num_basis)*basis_ref_dy(1,:,:)/spread(J,1,num_basis) &
-        + spread(J12,1,num_basis)*basis_ref_dy(2,:,:)/spread(J,1,num_basis)
-        basis_dy(2,:,:) = spread(J21,1,num_basis)*basis_ref_dy(1,:,:)/spread(J,1,num_basis) &
-        + spread(J22,1,num_basis)*basis_ref_dy(2,:,:)/spread(J,1,num_basis)
-
-        ! Transform to physical element
-        do i = 1,num_basis
-            result(:,i,:) = signedlength(i)*basis_dy(:,i,:)
-        end do
+        block
+            real(8), dimension(:,:,:),allocatable :: basis_ref
+            
+            allocate(result(Vh%dim, Vh%N_local_basis, num_pts))
+        
+            allocate(basis_ref(Vh%dim, Vh%N_local_basis, num_pts))
+            call BasisReferenceQuadRT1(refpts, DERIV_NONE, basis_ref)
+            
+            result(1,:,:) = spread(J11,1,num_basis)*basis_ref(1,:,:)/spread(J,1,num_basis) &
+            + spread(J12,1,num_basis)*basis_ref(2,:,:)/spread(J,1,num_basis)
+            result(2,:,:) = spread(J21,1,num_basis)*basis_ref(1,:,:)/spread(J,1,num_basis) &
+            + spread(J22,1,num_basis)*basis_ref(2,:,:)/spread(J,1,num_basis)
+        
+        end block
+        
+    case (DERIV_DIV)
+        
+        block
+            real(8), dimension(:,:,:),allocatable :: basis_ref_dxh,basis_ref_dyh,basis_ref_divh
+            
+            allocate(result(1,Vh%N_local_basis,num_pts))
+            allocate(basis_ref_divh(1,Vh%N_local_basis,num_pts))
+            allocate(basis_ref_dxh(2,Vh%N_local_basis,num_pts))
+            allocate(basis_ref_dyh(2,Vh%N_local_basis,num_pts))
+            
+            call BasisReferenceQuadRT1(refpts, DERIV_DX, basis_ref_dxh)
+            call BasisReferenceQuadRT1(refpts, DERIV_DY, basis_ref_dyh)
+            
+            basis_ref_divh(1,:,:) = basis_ref_dxh(1,:,:) + basis_ref_dyh(2,:,:)
+            
+            result(1,:,:) = basis_ref_divh(1,:,:)/spread(J,1,num_basis)
+            
+        end block
         
     case default
         print *, 'BasisLocalQuadRT1: Unknown derivative type'
@@ -216,45 +197,13 @@ subroutine BasisLocalQuadRT1(refpts, Th, Vh, i_elem, deriv_type, result)
 
     end select
     
+    ! Transform to physical element to make the orientation match the mesh
+    do i = 1,4
+        if(Th%ElemEdgeConn(i,i_elem)<0) then
+            result(:,i,:) = -result(:,i,:)
+        end if
+    end do
+    
 end subroutine BasisLocalQuadRT1
 
-
-subroutine JacobianCoeffQuad(vertices, refpts, J11,J12,J21,J22)
-    real(8), dimension(:,:), intent(in) :: vertices
-    real(8), dimension(:,:), intent(in) :: refpts
-    real(8), dimension(:), intent(out), allocatable :: J11,J12,J21,J22
-
-    real(8) :: x1,x2,x3,x4,y1,y2,y3,y4
-    real(8) :: cx1,cx2,cx3,cx4,cy1,cy2,cy3,cy4
-
-    x1 = vertices(1,1)
-    x2 = vertices(1,2)
-    x3 = vertices(1,3)
-    x4 = vertices(1,4)
-    y1 = vertices(2,1)
-    y2 = vertices(2,2)
-    y3 = vertices(2,3)
-    y4 = vertices(2,4)
-
-    cx1 = x1 - x2 + x3 - x4
-    cx2 = -x1 + x2
-    cx3 = -x1 + x4
-    cx4 = x1
-
-    cy1 = y1 - y2 + y3 - y4
-    cy2 = -y1 + y2
-    cy3 = -y1 + y4
-    cy4 = y1
-
-    allocate(J11(size(refpts,2)))
-    allocate(J12(size(refpts,2)))
-    allocate(J21(size(refpts,2)))
-    allocate(J22(size(refpts,2)))
-
-    J11 = cx1*refpts(2,:) + cx2
-    J12 = cx1*refpts(1,:) + cx3
-    J21 = cy1*refpts(2,:) + cy2
-    J22 = cy1*refpts(1,:) + cy3
-end subroutine JacobianCoeffQuad
-    
 end module fespace_QuadRT1

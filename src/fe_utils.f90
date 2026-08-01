@@ -49,6 +49,12 @@ contains
                 result = result + val
             end do
             result = sqrt(result)
+        case(NORM_INF)
+            result = 0d0
+            do i_elem = 1, Th%N_elem
+                call QuadLinfNorm(u, Th, Vh, i_elem, DERIV_NONE, Gauss_type, val)
+                result = max(result,val)
+            end do
 
         case default
             print *, "Error: norm type not implemented"
@@ -127,6 +133,26 @@ contains
         result = sum(spread(w,1,Vh%dim)*fe_value**2)
         
     end subroutine QuadNorm
+    
+    subroutine QuadLinfNorm(u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
+        type(vector), intent(in) :: u
+        type(mesh2D), intent(in) :: Th
+        type(fespace), intent(in) :: Vh
+        integer, intent(in) :: i_elem, deriv_type, Gauss_type
+        real(8), intent(out) :: result
+
+        real(8), dimension(:,:), allocatable :: x
+        real(8), dimension(:), allocatable :: w
+        real(8), dimension(:,:),allocatable :: fe_value
+
+        result = 0d0
+        call getGaussAnyElement(Th%NodeCoord(:,Th%ElemNodeConn(:,i_elem)), Gauss_type, x, w)
+        
+        call FEfunctionQuadValue(u, Th, Vh, i_elem, deriv_type, Gauss_type, fe_value)
+        
+        result = sqrt(maxval(sum(fe_value**2, dim=1)))
+        
+    end subroutine QuadLinfNorm
 
     subroutine QuadError(fun, u, Th, Vh, i_elem, deriv_type, Gauss_type, result)
         type(vector), intent(in) :: u

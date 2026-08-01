@@ -5,7 +5,7 @@
         {
             "label": "compile",
             "type": "shell",
-            "command": "make test_magnetic",
+            "command": "make -C apps/magnetic test_moving_exact",
             "options": {
                 "cwd": "${fileWorkspaceFolder}"
             }

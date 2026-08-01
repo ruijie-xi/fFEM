@@ -15,6 +15,7 @@ module magnetic
     public :: magnetic_diffusion, magnetic_init, magnetic_lorentz, magnetic_update
     public :: magnetic_plot
     public :: magnetic_errorB, magnetic_errorE, magnetic_errorLorentz
+    public :: magnetic_Bmax
     
     real(8) :: t_glb 
     common /global/ t_glb
@@ -38,10 +39,10 @@ contains
 
 subroutine magnetic_init(elems, nodes, B0_func, E0_func, sigma0_func, radius)
     implicit none
-    integer, dimension(:,:), intent(inout) :: elems
-    real(8), dimension(:,:), intent(in) :: nodes
-    procedure(func) :: B0_func, E0_func, sigma0_func
-    real(8), intent(in) :: radius
+    integer, dimension(:,:), intent(inout) :: elems ! 单元编号
+    real(8), dimension(:,:), intent(in) :: nodes ! 节点坐标
+    procedure(func) :: B0_func, E0_func, sigma0_func ! 磁场，电场初始值，电导率函数
+    real(8), intent(in) :: radius ! 边界半径
 
     integer, parameter :: DOF_type_Q = DOF_Q0
     integer, parameter :: DOF_type_E = DOF_Q2
@@ -73,10 +74,11 @@ subroutine magnetic_init(elems, nodes, B0_func, E0_func, sigma0_func, radius)
     
 end subroutine magnetic_init
 
-subroutine magnetic_diffusion(to, dt, g_func, f_func)
+subroutine magnetic_diffusion(to, dt, g_func, f_func, firststep)
     implicit none
-    real(8), intent(in) :: to, dt
-    procedure(func) :: g_func, f_func
+    real(8), intent(in) :: to, dt ! 时间，时间步长
+    procedure(func) :: g_func, f_func ! 边界函数，源项函数
+    logical, intent(in) :: firststep ! 是否第一个时间步
     
     real(8) :: t_tmp ! temporary saving variable for t_glb
     ! functions
@@ -165,11 +167,16 @@ subroutine magnetic_diffusion(to, dt, g_func, f_func)
     call VectorAddVector(B, 1d0, curlE, -dt)
     
     ! extrapolate E_int
-    call VectorCopy(E_int, E)
-    if(abs(to)<1d-6) then
-        call VectorAddVector(E_int, -1d0, E, 2d0)
-    else 
-        call VectorAddVector(E_int, -1d0/2d0, E, 3d0/2d0)
+    ! call VectorCopy(E_int, E)
+    ! if(abs(to)<1d-6) then
+    !     call VectorAddVector(E_int, -1d0, E, 2d0)
+    ! else 
+    !     call VectorAddVector(E_int, -1d0/2d0, E, 3d0/2d0)
+    ! end if
+    call VectorAddVector(E_int, -1d0, E, 2d0)
+    
+    if (firststep) then
+    call VectorAddVector(B, 0.5d0, Bold, 0.5d0)
     end if
     
 end subroutine magnetic_diffusion
@@ -272,7 +279,7 @@ end subroutine
 ! patch recovery to Q1
 subroutine magnetic_lorentz(F)
     implicit none
-    type(vector), intent(out) :: F
+    type(vector), intent(out) :: F ! 输出的洛伦兹力
 
     real(8), dimension(:,:), allocatable :: val_sigma, val_E, val_B
     integer :: i_elem,i_dim,i_basis
@@ -339,7 +346,7 @@ end subroutine magnetic_lorentz
 
 subroutine magnetic_plot(filename)
     implicit none
-    character(len=*) :: filename
+    character(len=*) :: filename ! 输出vtk文件名
 
     call PlotFunction(B, Th, Bh, filename)
 end subroutine
@@ -347,12 +354,21 @@ end subroutine
 subroutine magnetic_update(nodes)
     use mesh, only: getMeshhmax
     implicit none
-    real(8), dimension(:,:), intent(in) :: nodes
+    real(8), dimension(:,:), intent(in) :: nodes ! 新节点坐标
     
     ! update mesh
     Th%NodeCoord = nodes
     call getMeshhmax(Th)
 
 end subroutine magnetic_update
+
+subroutine magnetic_Bmax(i_elem, Bmax)
+    implicit none
+    integer, intent(in) :: i_elem
+    real(8), intent(out) :: Bmax 
+    
+    call QuadLinfNorm(B, Th, Bh, i_elem, DERIV_NONE, Gauss_type, Bmax)
+    
+end subroutine magnetic_Bmax
     
 end module magnetic

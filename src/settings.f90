@@ -34,6 +34,7 @@ module settings
     integer, parameter :: NORM_H1 = 1
     integer, parameter :: NORM_HDIV = 2
     integer, parameter :: NORM_DIV = 3
+    integer, parameter :: NORM_INF = 4
 
     ! Gauss type
     integer, parameter :: LinePt1 = 1

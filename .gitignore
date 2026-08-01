@@ -2,4 +2,6 @@
 *.mod
 *.o
 lib/*
+test/test_interpolation
+3rdparty/UMFPACK_2.0/*.a
 homework/hw2/output/

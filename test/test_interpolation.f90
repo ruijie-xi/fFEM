@@ -24,7 +24,7 @@ PROGRAM test_interpolation
     real(8), dimension(:,:), allocatable :: nodes
 
     integer, parameter :: mesh_type = MESH_QUAD
-    integer, parameter :: DOF_type = DOF_QuadRT2
+    integer, parameter :: DOF_type = DOF_QuadRT1
     integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: fe_dim = 2
 
@@ -47,6 +47,8 @@ PROGRAM test_interpolation
         write(*,*) "Integral", values
         call ComputeNorm(u, Th, Vh, NORM_L2, Gauss_type, value)
         write(*,*) "Norm L2 ", value
+        call ComputeNorm(u, Th, Vh, NORM_INF, Gauss_type, value)
+        write(*,*) "Norm Linf ", value
         call ComputeError(test_func, u, Th, Vh, NORM_L2, Gauss_type, value)
         write(*,*) "Error L2", value
         call ComputeError(test_func, u, Th, Vh, NORM_HDIV, Gauss_type, value)
@@ -65,7 +67,7 @@ subroutine test_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
     select case(deriv_type)
