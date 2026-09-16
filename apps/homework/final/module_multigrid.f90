@@ -19,7 +19,8 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
     integer, intent(in) :: max_steps
     integer, intent(in) :: smoother
     integer, intent(in) :: n_pre, n_post
-    logical, optional :: print_screen
+    logical, intent(in), optional :: print_screen
+    logical :: verbose
     integer, intent(in), optional :: writeunit
     
     integer :: n_level
@@ -40,8 +41,9 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
     res = r%Norm()
     res0 = res
     
-    if(.not. present(print_screen)) print_screen = .true.
-    if(print_screen) then
+    verbose = .true.
+    if (present(print_screen)) verbose = print_screen
+    if(verbose) then
         write(*,*) "Step = ", 0, "Residual = ", res
     end if
     
@@ -49,8 +51,9 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
         write(writeunit,*) 0, res
     end if
     
+    if (res0 == 0d0) return
+    allocate(Mat_ts(n_level))
     if(smoother==SMOOTHER_GS) then 
-        allocate(Mat_ts(n_level))
         do i = 1, n_level
             Mat_ts(i) = MatrixColumnTranspose(Mats(i))
         end do
@@ -67,7 +70,7 @@ subroutine solver_multigrid(mesh_list, fes_list, Mats, Trs, b, x, rtol, max_step
         res = r%Norm()
         rate = res/res_old
         
-        if(print_screen) then
+        if(verbose) then
             write(*,*) "Step = ", i_step, "Residual = ", res, "Rate = ", rate
         end if
         

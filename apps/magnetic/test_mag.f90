@@ -254,7 +254,7 @@ program test_mag
         ! call magnetic_lorentz(F)
 
         ! Step 3: Solve diffusion equation, advance time
-        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func)
+        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func, .false.)
 
         ! Step 4: Move mesh
         t = t+0.5d0*dt
@@ -264,7 +264,7 @@ program test_mag
         call MoveMesh(u, dt, nodes)
         call magnetic_update(nodes)
         
-        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func)
+        call magnetic_diffusion(t, 0.5d0*dt, g_func, f_func, .false.)
         
         t = t+0.5d0*dt
         

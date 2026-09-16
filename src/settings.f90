@@ -124,13 +124,51 @@ module settings
     
     ! Vector
     type :: VECTOR 
-        integer :: size
+        integer :: size = 0
         real(8), dimension(:), allocatable :: data
-        
+    contains
+        ! Compatibility with the original type-bound API.
+        procedure :: Init => vector_initialize
+        procedure :: Reset => vector_initialize
+        procedure :: Norm => vector_norm_inf
+        procedure :: AddVector => vector_add_scaled
     end type VECTOR
 
     ! some useful constants
     real(8), parameter :: m_pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
     
     
+contains
+
+    subroutine vector_initialize(self, n)
+        class(VECTOR), intent(inout) :: self
+        integer, intent(in) :: n
+        if (n < 0) error stop 'VectorInit: negative size'
+        if (allocated(self%data)) deallocate(self%data)
+        allocate(self%data(n))
+        self%data = 0d0
+        self%size = n
+    end subroutine vector_initialize
+
+    function vector_norm_inf(self) result(norm)
+        class(VECTOR), intent(in) :: self
+        real(8) :: norm
+        if (.not. allocated(self%data)) error stop 'VectorNorm: uninitialized vector'
+        norm = 0d0
+        if (self%size > 0) norm = maxval(abs(self%data))
+    end function vector_norm_inf
+
+    subroutine vector_add_scaled(self, other, a)
+        class(VECTOR), intent(inout) :: self
+        type(VECTOR), intent(in) :: other
+        real(8), intent(in), optional :: a
+        real(8) :: scale
+        if (.not. allocated(self%data) .or. .not. allocated(other%data)) &
+            error stop 'VectorAdd: uninitialized vector'
+        if (self%size /= other%size) error stop 'VectorAdd: size mismatch'
+        scale = 1d0
+        if (present(a)) scale = a
+        self%data = self%data + scale*other%data
+    end subroutine vector_add_scaled
+
 end module settings

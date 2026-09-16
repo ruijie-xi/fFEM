@@ -158,7 +158,7 @@ program test_jacobi_GS
         
         ! select initial value 
         coeff = coeff_input
-        call Interpolate(x0%data, x0_func, Th, Vh)
+        call Interpolate(x0, x0_func, Th, Vh)
         
         ! set outputfile
         open(unit=10, file=trim(outputdir)//"/residue.dat", status='replace')

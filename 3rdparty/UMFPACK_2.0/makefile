@@ -16,17 +16,16 @@ OBJS = $(SRCS:.f=.o)
 all: $(LIB)
 
 # Compile Fortran source files
-$(SRC_DIR)/%.o: $(SRC_DIR)/%.f
+$(SRC_DIR)/%.o: $(SRC_DIR)/%.f makefile
 	$(FC) $(FFLAGS) -c $< -o $@
 
 # Create the library
 $(LIB): $(OBJS)
-	ar qc $@ $(OBJS)
-	rm -f $(OBJS)
+	ar rcs $@ $(OBJS)
 
 # Clean up
 clean:
-	rm -f $(LIB)
+	rm -f $(LIB) $(OBJS)
 
 # Phony targets
 .PHONY: all clean

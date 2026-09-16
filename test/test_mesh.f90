@@ -11,7 +11,7 @@ PROGRAM test_mesh
 
     type(mesh2D) :: Th
     type(fespace) :: Vh
-    real(8), allocatable, dimension(:) :: u
+    type(VECTOR) :: u
     procedure(func) :: test_func
 
     integer :: Nx,Ny
@@ -61,7 +61,7 @@ subroutine test_func(x,f,deriv_type)
     use settings
     implicit none
     real(8), intent(in), dimension(:) :: x
-    real(8), dimension(:), allocatable :: f
+    real(8), intent(out), dimension(:), allocatable :: f
     integer, intent(in) :: deriv_type
 
     if (.not. allocated(f)) allocate(f(2))

@@ -51,9 +51,9 @@ contains
             x(:,1) = (/ 0d0, 0d0 /)
             x(:,2) = (/ 1d0, 0d0 /)
             x(:,3) = (/ 0d0, 1d0 /)
-            w(1) = 1d0/3d0
-            w(2) = 1d0/3d0
-            w(3) = 1d0/3d0
+            w(1) = 1d0/6d0
+            w(2) = 1d0/6d0
+            w(3) = 1d0/6d0
         case (TrianglePt1)
             N_pts = 1
             allocate(x(2,N_pts))

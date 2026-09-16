@@ -1,5 +1,5 @@
 program test_quicksort
-  use quicksort_module
+  use ffem_quicksort
   implicit none
   real(8) :: a(1000),btmp,a_restore(1000)
   integer :: b(1000),b_restore(1000)

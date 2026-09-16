@@ -1,34 +1,28 @@
-.PHONY: all clean
+.DEFAULT_GOAL := all
+.NOTPARALLEL:
+.PHONY: all check clean FORCE
 
 FFEMDIR = ..
-LIBFFEM = ${FFEMDIR}/lib/libffem.a
+LIBFFEM = $(FFEMDIR)/lib/libffem.a
+include $(FFEMDIR)/makefile.inc
 
-include ${FFEMDIR}/makefile.inc
+executables = test_mesh test_interpolation test_poisson test_stokes test_matvec test_quicksort test_mpi test_regression
 
-%.o: %.f90
-	${CF} -c ${FOPT} ${FINCL} $< -o $@ 
-	
-%: %.o 
-	cd ${FFEMDIR} && make && cd - 
-	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
-	
-executables = test_mesh test_interpolation test_poisson test_stokes test_matvec test_quicksort test_mpi test_poisson_parallel
-	
-all: ${executables}
+all: $(executables)
 
-test_mesh: test_mesh.o 
+$(LIBFFEM): FORCE
+	$(MAKE) -C $(FFEMDIR) all
 
-test_interpolation: test_interpolation.o 
+$(executables): %: %.o $(LIBFFEM) $(UMFPACK_LIB)
+	$(CF) -o $@ $< -L$(FFEMDIR)/lib -lffem $(FLIB) $(FOPT_LINK)
 
-test_poisson: test_poisson.o 
+$(UMFPACK_LIB): $(LIBFFEM)
 
-test_stokes: test_stokes.o 
+%.o: %.f90 $(LIBFFEM) $(FFEMDIR)/makefile.inc
+	$(CF) -c $(FOPT) $(FINCL) $< -o $@
 
-test_matvec: test_matvec.o 
+check: all
+	python3 run_tests.py
 
-test_quicksort: test_quicksort.o 
-
-test_mpi: test_mpi.o 
-
-clean: 
-	rm -rf *.o *.mod ${executables} output/ test.txt
+clean:
+	rm -f *.o *.mod $(executables)

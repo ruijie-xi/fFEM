@@ -187,7 +187,7 @@ program test_static
     type(vector) :: u
 
     ! Lorentz force
-    real(8), dimension(:), allocatable :: F
+    type(vector) :: F
 
     ! error
     real(8) :: L2_err, relL2err
@@ -213,12 +213,14 @@ program test_static
 
     call HydrodynamicInitialize(elems,nodes)
 
-    call magnetic_init(elems, nodes, B0_func, E0_func, sigma_func)
+    t = 0d0
+    call magnetic_init(elems, nodes, B0_func, E0_func, sigma_func, Rlist(1))
 
     ! time step
     dt = 0.1d0
     call getarg(2, arg)
     read(arg,*) dt
+    if (dt <= 0d0) error stop 'Time step must be positive'
     do while(t<Tend-1d-8)
         ! Step 1: Get Lorentz force
         call magnetic_lorentz(F)
@@ -227,10 +229,13 @@ program test_static
         call getVelocity(u_func, u)
 
         ! Step 3: Solve diffusion equation, advance time
-        call magnetic_diffusion(dt, g_func, f_func)
+        dt = min(dt, Tend-t)
+        call magnetic_diffusion(t, dt, g_func, f_func, .false.)
 
         ! Step 4: Move mesh
         call MoveMesh(u, dt, nodes)
+        call magnetic_update(nodes)
+        t = t + dt
     end do
 
     ! compute error

@@ -137,10 +137,12 @@ contains
             stop
         end if
 
-        call MatrixTripletInit(result, mat1%N_row, mat1%N_col, mat1%N_nz + mat2%N_nz)
+        call MatrixTripletInit(result, mat1%N_row, mat1%N_col, mat1%actual_nnz + mat2%actual_nnz)
 
-        call MatrixTripletAddValues(result, mat1%row_idx, mat1%col_idx, coeff1*mat1%val)
-        call MatrixTripletAddValues(result, mat2%row_idx, mat2%col_idx, coeff2*mat2%val)
+        call MatrixTripletAddValues(result, mat1%row_idx(:mat1%actual_nnz), &
+            mat1%col_idx(:mat1%actual_nnz), coeff1*mat1%val(:mat1%actual_nnz))
+        call MatrixTripletAddValues(result, mat2%row_idx(:mat2%actual_nnz), &
+            mat2%col_idx(:mat2%actual_nnz), coeff2*mat2%val(:mat2%actual_nnz))
     end subroutine
 
     ! convert triplet format to column format
@@ -478,7 +480,9 @@ contains
 
         integer :: k
 
-        logical :: changed = .false.
+        logical :: changed
+
+        changed = .false.
 
         do k = A%col_ptr(j), A%col_ptr(j+1)-1
             if(A%row_idx(k) == i) then
@@ -537,16 +541,22 @@ contains
     end subroutine
 
     ! remove zero elements in a matrix in column format
-    subroutine MatrixColumnTrim(A)
+    subroutine MatrixColumnTrim(A, tolerance)
         type(MATRIX_COLUMN), intent(inout) :: A
+        real(8), intent(in), optional :: tolerance
         
         real(8),dimension(:),allocatable :: val_tmp
         integer,dimension(:),allocatable :: row_idx_tmp,col_ptr_tmp
 
-        real(8) :: tol = 1.0e-12
+        real(8) :: tol
 
         logical, dimension(:), allocatable :: mask
         integer :: nnz_new, i_col, nnz_col
+
+        ! Format conversion must preserve all nonzero coefficients by default.
+        tol = 0d0
+        if (present(tolerance)) tol = tolerance
+        if (tol < 0d0) error stop 'MatrixColumnTrim: negative tolerance'
 
         allocate(val_tmp(A%N_nz),row_idx_tmp(A%N_nz),col_ptr_tmp(A%N_col+1))
         val_tmp = A%val
@@ -598,6 +608,8 @@ contains
         tmp_row_idx = A_triplet%row_idx
         A_triplet%row_idx = A_triplet%col_idx
         A_triplet%col_idx = tmp_row_idx
+        A_triplet%N_row = A%N_col
+        A_triplet%N_col = A%N_row
         
         call MatrixTriplet2Column(A_triplet, A_t)
         
@@ -701,20 +713,14 @@ contains
         type(VECTOR), intent(out) :: vec
         integer, intent(in) :: n
         
-        vec%size = n
-        allocate(vec%data(n))
-        vec%data = 0d0 
+        call vec%Init(n)
     end subroutine 
     
     subroutine VectorReset(vec, n)
         type(VECTOR), intent(inout) :: vec
         integer, intent(in) :: n
         
-        if(allocated(vec%data)) deallocate(vec%data)
-        
-        vec%size = n
-        allocate(vec%data(n))
-        vec%data = 0d0 
+        call vec%Reset(n)
     end subroutine
     
     function VectorNormL2(vec) result(norm)
@@ -726,7 +732,7 @@ contains
     function VectorNormLinf(vec) result(norm)
         type(VECTOR), intent(in) :: vec
         real(8) :: norm
-        norm = maxval(abs(vec%data))
+        norm = vec%Norm()
     end function VectorNormLinf
     
     subroutine VectorCopy(vec_out, vec_in)
@@ -738,11 +744,8 @@ contains
             error stop
         end if
         
-        if(vec_out%size /= vec_in%size) then
-            call VectorReset(vec_out, vec_in%size)
-        end if
-        
         vec_out%data = vec_in%data
+        vec_out%size = size(vec_in%data)
     end subroutine VectorCopy
     
     subroutine VectorAssignScalar(vec, scalar)

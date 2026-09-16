@@ -2,6 +2,13 @@
 *.mod
 *.o
 lib/*
-test/test_interpolation
+/test/test_*
+!/test/test_*.f90
+/apps/homework/*/test_multigrid
+/apps/homework/hw1/test_jacobi_GS
+/apps/magnetic/test_moving_exact
+/apps/magnetic/test_static
+/apps/magnetic/test_mag
+__pycache__/
 3rdparty/UMFPACK_2.0/*.a
 homework/hw2/output/

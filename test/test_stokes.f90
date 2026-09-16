@@ -3,7 +3,7 @@
 ! and the exact solution is given by
 ! u = (2y*exp(x+y^2), -exp(x+y^2))
 ! p = sin(2*pi*x)*sin(2*pi*y)
-! f = -div(u) + grad(p)
+! f = -laplacian(u) + grad(p)
 ! g = 0
 ! TODO: The treatment of the boundary condition is slow. Need to optimize it.
 
@@ -18,7 +18,7 @@ contains
 subroutine DirichletBC(A, b, Th, Vh, Ph, bndy_func, p_func)
     implicit none
     type(MATRIX_COLUMN) :: A
-    real(8),dimension(:) :: b
+    type(VECTOR) :: b
     type(mesh2D) :: Th
     type(fespace) :: Vh, Ph
     procedure(func) :: bndy_func, p_func
@@ -34,9 +34,9 @@ subroutine DirichletBC(A, b, Th, Vh, Ph, bndy_func, p_func)
             do i_dof = 1,size(dof_index)
                 ! clear the row
                 call MatrixColumnClearRow(A, dof_index(i_dof))
-                call ComputeDof(DbndyVal, bndy_func, Th, Vh, dof_index(i_dof))
+                DbndyVal = ComputeDof(bndy_func, Th, Vh, dof_index(i_dof))
                 call MatrixColumnSet(A, dof_index(i_dof), dof_index(i_dof), 1d0)
-                b(dof_index(i_dof)) = DbndyVal
+                b%data(dof_index(i_dof)) = DbndyVal
             end do
         end if
     end do
@@ -44,9 +44,9 @@ subroutine DirichletBC(A, b, Th, Vh, Ph, bndy_func, p_func)
     ! clear the row
     i_dof = 1
     call MatrixColumnClearRow(A, i_dof + Vh%N_DOF)
-    call ComputeDof(DbndyVal, p_func, Th, Ph, i_dof)
+    DbndyVal = ComputeDof(p_func, Th, Ph, i_dof)
     call MatrixColumnSet(A, i_dof + Vh%N_DOF, i_dof + Vh%N_DOF, 1d0)
-    b(Vh%N_DOF+i_dof) = DbndyVal
+    b%data(Vh%N_DOF+i_dof) = DbndyVal
 
 end subroutine DirichletBC
     
@@ -61,7 +61,6 @@ program test_stokes
     use fe_utils
     use visualize
     use solver_umfpack2
-    use solver_petsc
     use memory_usage
     use assembler
     use matvec
@@ -82,13 +81,13 @@ program test_stokes
     integer, parameter :: Gauss_type = TrianglePt9
     
     ! functions
-    real(8), allocatable, dimension(:) :: x,u,p
+    type(VECTOR) :: x,u,p
     procedure(func) :: u_func, p_func, one_func, f_func, g_func
 
     ! linear system
     type(MATRIX_TRIPLET) :: A
     type(MATRIX_COLUMN) :: A_column
-    real(8), dimension(:), allocatable :: b
+    type(VECTOR) :: b
     integer :: N_nz
 
     ! timer
@@ -154,10 +153,9 @@ program test_stokes
     assemble_info(2,:) = (/1, 2, DERIV_DY, 1, DERIV_NONE/)
     call AssembleMatrixElement(one_func, [-1d0,-1d0], Th, Vh, 0, Ph, Vh%N_DOF, assemble_info, Gauss_type, A)
     deallocate(assemble_info)
-    allocate(assemble_info(1,5))
-    assemble_info(1,:) = (/1, 1, DERIV_NONE, 1, DERIV_NONE/)
-    call AssembleMatrixElement(one_func, [1d-6], Th, Ph, Vh%N_DOF, Ph, Vh%N_DOF, assemble_info, Gauss_type, A)
-    deallocate(assemble_info)
+    ! Reserve the pressure gauge diagonal; DirichletBC replaces this row.
+    ! Do not add an artificial pressure mass term to the Stokes equations.
+    call MatrixTripletAddValue(A, Vh%N_DOF+1, Vh%N_DOF+1, 1d0)
 
     call VectorInit(b, Vh%N_DOF+Ph%N_DOF)
     allocate(assemble_info(2,3))
@@ -191,17 +189,18 @@ program test_stokes
     ! solve the linear system
     call VectorInit(x, Vh%N_DOF+Ph%N_DOF)
     call timer_start()
-    call SolverSolvePETSC(A, b, x)
+    call SolverSolveUMFPACK2(A, b, x)
     call timer_end(t_test)
     write(*,*) "Solve Done. Time taken = ", t_test
 
-    allocate(u(Vh%N_DOF), p(Ph%N_DOF))
-    u = x(1:Vh%N_DOF)
-    p = x(Vh%N_DOF+1:Vh%N_DOF+Ph%N_DOF)
+    call VectorInit(u, Vh%N_DOF)
+    call VectorInit(p, Ph%N_DOF)
+    u%data = x%data(1:Vh%N_DOF)
+    p%data = x%data(Vh%N_DOF+1:Vh%N_DOF+Ph%N_DOF)
 
     ! compute integral
     call ComputeIntegral(p, Th, Ph, Gauss_type, p_integral)
-    p = p - p_integral(1)
+    p%data = p%data - p_integral(1)
     call ComputeIntegral(p, Th, Ph, Gauss_type, p_integral)
     write(*,*) "Integral of p = ", p_integral
     

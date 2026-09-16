@@ -472,12 +472,14 @@ contains
         type(mesh2D), intent(inout) :: Th
         procedure(func) :: fun
         integer,intent(in) :: marker
-        real(8), optional :: eps
+        real(8), intent(in), optional :: eps
+        real(8) :: tolerance
 
         integer :: i_bdry, i_edge, i_node1, i_node2
         real(8),dimension(:),allocatable :: val1, val2
         
-        if(.not.present(eps)) eps = 1d-8
+        tolerance = 1d-8
+        if (present(eps)) tolerance = eps
 
         do i_bdry = 1,Th%N_bdryedge
             i_edge = Th%BdryEdge(i_bdry)
@@ -488,7 +490,7 @@ contains
             call fun(Th%NodeCoord(:,i_node2), val2, DERIV_NONE)
 
             call assert(size(val1)==1 .and. size(val2)==1, "val1 and val2 are scalars")
-            if (abs(val1(1))<eps .and. abs(val2(1))<eps) then
+            if (abs(val1(1))<tolerance .and. abs(val2(1))<tolerance) then
                 Th%BdryMarker(i_bdry) = marker
             end if
         end do

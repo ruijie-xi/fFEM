@@ -18,20 +18,33 @@ PROGRAM test_interpolation
     real(8), dimension(:), allocatable :: values
 
     integer :: Nx,Ny
-    integer :: i_loop
+    integer :: i_loop, n_levels
+    character(32) :: arg
 
     integer, dimension(:,:), allocatable :: elems
     real(8), dimension(:,:), allocatable :: nodes
 
     integer, parameter :: mesh_type = MESH_QUAD
-    integer, parameter :: DOF_type = DOF_QuadRT1
+    integer :: DOF_type = DOF_QuadRT1
     integer, parameter :: Gauss_type = QuadPt9
     integer, parameter :: fe_dim = 2
 
     Nx = 10
     Ny = 10
 
-    do i_loop = 1,8
+    n_levels = 3
+    if (command_argument_count() >= 1) then
+        call get_command_argument(1, arg)
+        read(arg,*) n_levels
+    end if
+    if (command_argument_count() >= 2) then
+        call get_command_argument(2, arg)
+        read(arg,*) DOF_type
+    end if
+    if (n_levels < 1 .or. n_levels > 6) error stop 'Expected 1 to 6 refinement levels'
+    if (DOF_type /= DOF_QuadRT1 .and. DOF_type /= DOF_QuadRT2) error stop 'Expected RT1 (121) or RT2 (122)'
+
+    do i_loop = 1,n_levels
         write(*,*) "Nx = ", Nx, "Ny = ", Ny
 
         if (mesh_type == MESH_TRIANGLE) then

@@ -1,6 +1,10 @@
+.DEFAULT_GOAL := default
 .PHONY: all clean lib
 
-FFEMDIR = ../..
+all: default
+
+.NOTPARALLEL:
+FFEMDIR = ../../..
 LIBFFEM = ${FFEMDIR}/lib/libffem.a
 
 include ${FFEMDIR}/makefile.inc
@@ -9,12 +13,19 @@ include ${FFEMDIR}/makefile.inc
 	${CF} -c ${FOPT} ${FINCL} $< -o $@ 
 	
 	
-default: lib test_multigrid
-	
+default: test_multigrid
+
+$(LIBFFEM): lib
+$(UMFPACK_LIB): $(LIBFFEM)
+
+module_smoother.o module_prolongation.o module_multigrid.o test_multigrid.o: $(wildcard *.f90) $(LIBFFEM) makefile
+module_multigrid.o: module_smoother.o module_prolongation.o
+test_multigrid.o: module_multigrid.o
+
 lib: 
 	cd ${FFEMDIR} && make && cd -
 
-test_multigrid: module_smoother.o module_prolongation.o module_multigrid.o test_multigrid.o
+test_multigrid: module_smoother.o module_prolongation.o module_multigrid.o test_multigrid.o $(LIBFFEM) $(UMFPACK_LIB)
 	${CF} -o $@ $^ -L${FFEMDIR}/lib -lffem ${FLIB} ${FOPT_LINK}
 	
 clean:

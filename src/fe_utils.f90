@@ -234,8 +234,8 @@ contains
 
         numpts = size(x_ref, 2)
         if(allocated(result)) deallocate(result)
-        allocate(result(Vh%dim,numpts))
-        do i_dim = 1,Vh%dim
+        allocate(result(size(basis_values,1),numpts))
+        do i_dim = 1,size(basis_values,1)
             call getLocalDof(u, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 
@@ -286,8 +286,8 @@ contains
         call BasisLocal2D(x_ref, Th, Vh, i_elem, deriv_type, basis_values)
 
         numpts = size(x_ref, 2)
-        allocate(result(Vh%dim,numpts))
-        do i_dim = 1,Vh%dim
+        allocate(result(size(basis_values,1),numpts))
+        do i_dim = 1,size(basis_values,1)
             call getLocalDof(u, Vh, i_elem, i_dim, local_u)
             result(i_dim,:) = matmul(transpose(basis_values(i_dim,:,:)), local_u)
         end do 

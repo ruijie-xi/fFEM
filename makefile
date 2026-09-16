@@ -1,5 +1,9 @@
 
 
+.DEFAULT_GOAL := all
+.NOTPARALLEL:
+.PHONY: all default clean clean-all clean-umfpack check
+
 # --- compiler settings -----------------------------------
 FFEMDIR = .
 SRC_DIR = src
@@ -10,7 +14,7 @@ LIB_DIR = lib
 TEST_DIR = test
 VPATH  = $(SRC_DIR):$(MOD_DIR):$(BIN_DIR):$(OBJECT_DIR):$(LIB_DIR)
 
-LIBFFEM = libffem.a
+LIBFFEM = $(LIB_DIR)/libffem.a
 
 include makefile.inc
 
@@ -49,6 +53,9 @@ endif
 
 OBJECTS = $(addprefix $(OBJECT_DIR)/, $(OBJECT_FILES))
 
+# Conservative module dependency handling for this small, ordered build.
+$(OBJECTS): $(wildcard $(SRC_DIR)/*.f90) makefile makefile.inc
+
 # --- commands -------------------------------------------------------
 
 $(OBJECT_DIR)/%.o: $(SRC_DIR)/%.f90
@@ -61,11 +68,14 @@ default: $(LIBFFEM)
 
 all: $(UMFPACK_LIB) $(LIBFFEM)
 
-$(UMFPACK_LIB):
-	cd $(UMFPACK_DIR) && make && cd -
+$(UMFPACK_LIB): $(wildcard $(UMFPACK_DIR)/src/*.f) $(UMFPACK_DIR)/makefile
+	$(MAKE) -C $(UMFPACK_DIR)
 
 $(LIBFFEM): ${OBJECTS}
-	ar rcs $(LIB_DIR)/$@ $^
+	ar rcs $@ $^
+
+check: all
+	$(MAKE) -C test check
 
 clean-umfpack:
 	cd $(UMFPACK_DIR) && make clean && cd -

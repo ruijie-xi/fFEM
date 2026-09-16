@@ -202,6 +202,10 @@ c-----------------------------------------------------------------------
 c  get input parameters and initialize
 c-----------------------------------------------------------------------
  
+c       Singleton-only BTF factorizations never call ums2f1/ums2f2.
+c       Initialize their workspace flags before any early return.
+        iout = .false.
+        xout = .false.
         nblks = 1
         nzoff = 0
         nzdia = nz

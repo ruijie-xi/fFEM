@@ -40,7 +40,7 @@ subroutine fespaceInit_QuadRT2(Vh,Th,dim)
     Vh%ElemDOF([2,4,6,8],:) = (abs(Th%ElemEdgeConn)-1)*nDOFonEdge + 2
     
     do i_dof = 1, nDOFonElem
-        Vh%ElemDOF(8+i_dof,:) = Th%N_edge*nDOFonEdge + [(i,i=0,Th%N_elem)]*nDOFonElem + i_dof
+        Vh%ElemDOF(8+i_dof,:) = Th%N_edge*nDOFonEdge + [(i,i=0,Th%N_elem-1)]*nDOFonElem + i_dof
     end do
     
     
